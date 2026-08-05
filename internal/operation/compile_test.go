@@ -95,7 +95,7 @@ func TestCompileRejectsInvalidDefinitions(t *testing.T) {
 		{name: "invalid response", mutate: func(d *Definition) { d.Responses[999] = ResponseSpec{} }},
 		{name: "invalid route", mutate: func(d *Definition) { d.FullRoute = "users" }},
 		{name: "missing success response", mutate: func(d *Definition) {
-			d.Responses = map[int]ResponseSpecthttp.StatusBadRequest: {Kind: ResponseProblem}}
+			d.Responses = map[int]ResponseSpec{http.StatusBadRequest: {Kind: ResponseProblem}}
 		}},
 	}
 	for _, tc := range tests {
