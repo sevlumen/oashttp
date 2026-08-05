@@ -1,0 +1,56 @@
+name: Migrate module path
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  migrate:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.22.x'
+          cache: false
+
+      - name: Replace legacy module path
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t files < <(grep -RIl --exclude-dir=.git 'github.com/oashttp/oashttp' . || true)
+          if ((${#files[@]})); then
+            sed -i 's#github.com/oashttp/oashttp#github.com/quang020102/go-osm#g' "${files[@]}"
+          fi
+          gofmt -w $(find . -name '*.go' -not -path './.git/*')
+          go mod tidy
+
+      - name: Validate migrated module
+        run: |
+          test "$(go list -m all | wc -l)" -eq 1
+          test -z "$(grep -RIl --exclude-dir=.git 'github.com/oashttp/oashttp' . || true)"
+          go vet ./...
+          go test ./...
+          go test -race ./...
+
+      - name: Commit migration
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git diff --quiet; then
+            echo 'No migration changes required.'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m 'refactor: align module imports with repository'
+          git push origin HEAD:main
