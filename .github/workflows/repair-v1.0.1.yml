@@ -1,0 +1,76 @@
+name: Repair v1.0.1
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/repair-v1.0.1.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: repair-v1.0.1
+  cancel-in-progress: true
+
+jobs:
+  repair:
+    name: Apply, verify, and retag v1.0.1
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@v7
+        with:
+          go-version: "1.26.x"
+          cache: false
+
+      - name: Restore and apply release patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          for part in 01 02 03 04 05 06 07 08 09; do
+            git show 2f7462753bb0b05ba2f827531d713fe93f591a8c:.release/v1.0.1/part${part}
+          done | base64 --decode > /tmp/oashttp-v1.0.1.patch
+          echo "1601446a352fbd883c30dfdd44316be04b2576cd289c76ca852ec284ecd3803f  /tmp/oashttp-v1.0.1.patch" | sha256sum --check --strict
+          git apply --index --whitespace=error /tmp/oashttp-v1.0.1.patch
+          git diff --cached --check
+          grep -qx 'const Version = "1.0.1"' version.go
+
+      - name: Verify release
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "$(gofmt -l .)"
+          go mod tidy
+          git diff --exit-code -- go.mod go.sum
+          go vet ./...
+          go test ./... -shuffle=on -count=3
+          go test -race ./...
+          go test ./... -coverprofile=coverage.out
+          coverage="$(go tool cover -func=coverage.out | awk '/^total:/ {gsub(/%/, "", $3); print $3}')"
+          echo "total coverage: ${coverage}%"
+          awk -v coverage="$coverage" 'BEGIN { if ((coverage + 0) < 70) exit 1 }'
+          UPDATE_GOLDEN=1 go test ./examples/users-api -run TestUsersAPIEndToEnd/openapi_golden -count=1
+          git diff --exit-code -- testdata/users.openapi.golden.json
+          go test ./internal/route -run=^$ -fuzz=FuzzRouteParserNeverPanics -fuzztime=15s
+          go test ./internal/binding -run=^$ -fuzz=FuzzCompiledBinderNeverPanics -fuzztime=15s
+          go test ./... -bench=. -run=^$ -benchtime=100ms
+          go install golang.org/x/vuln/cmd/govulncheck@v1.6.0
+          govulncheck ./...
+
+      - name: Commit source and correct tag
+        shell: bash
+        run: |
+          set -euo pipefail
+          git rm .github/workflows/repair-v1.0.1.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "release: implement customizable failures in v1.0.1"
+          grep -qx 'const Version = "1.0.1"' version.go
+          git tag -d v1.0.1 || true
+          git tag -a v1.0.1 HEAD -m "Release v1.0.1"
+          git push origin HEAD:main
+          git push --force origin refs/tags/v1.0.1
