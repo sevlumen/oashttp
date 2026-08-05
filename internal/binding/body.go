@@ -17,16 +17,16 @@ func decodeBody(r *http.Request, target reflect.Value, limit int64, disallowUnkn
 		}
 		return nil
 	}
-	mediaType, _, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
-	if err != nil || mediaType != "application/json" {
-		return fmt.Errorf("Content-Type must be application/json")
+	if r.ContentLength > limit && r.ContentLength >= 0 {
+		return &RequestError{Status: http.StatusRequestEntityTooLarge, Code: "PAYLOAD_TOO_LARGE", Detail: fmt.Sprintf("JSON body exceeds %d bytes", limit)}
 	}
+
 	data, err := io.ReadAll(io.LimitReader(r.Body, limit+1))
 	if err != nil {
 		return fmt.Errorf("read JSON body: %w", err)
 	}
 	if int64(len(data)) > limit {
-		return fmt.Errorf("JSON body exceeds %d bytes", limit)
+		return &RequestError{Status: http.StatusRequestEntityTooLarge, Code: "PAYLOAD_TOO_LARGE", Detail: fmt.Sprintf("JSON body exceeds %d bytes", limit)}
 	}
 	if len(bytes.TrimSpace(data)) == 0 {
 		if required {
@@ -34,6 +34,12 @@ func decodeBody(r *http.Request, target reflect.Value, limit int64, disallowUnkn
 		}
 		return nil
 	}
+
+	mediaType, _, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
+	if err != nil || mediaType != "application/json" {
+		return &RequestError{Status: http.StatusUnsupportedMediaType, Code: "UNSUPPORTED_MEDIA_TYPE", Detail: "Content-Type must be application/json"}
+	}
+
 	decoder := json.NewDecoder(bytes.NewReader(data))
 	if disallowUnknown {
 		decoder.DisallowUnknownFields()

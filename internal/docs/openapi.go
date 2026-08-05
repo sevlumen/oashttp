@@ -1,12 +1,20 @@
 package docs
 
-import "net/http"
+import (
+	"crypto/sha256"
+	"fmt"
+	"net/http"
+)
 
-type immutableJSONHandler struct{ data []byte }
+type immutableJSONHandler struct {
+	data []byte
+	etag string
+}
 
 func NewOpenAPIHandler(data []byte) http.Handler {
 	copyData := append([]byte(nil), data...)
-	return immutableJSONHandler{data: copyData}
+	sum := sha256.Sum256(copyData)
+	return immutableJSONHandler{data: copyData, etag: fmt.Sprintf(`"%x"`, sum)}
 }
 func (h immutableJSONHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet && r.Method != http.MethodHead {
@@ -16,7 +24,12 @@ func (h immutableJSONHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Cache-Control", "public, max-age=300")
+	w.Header().Set("ETag", h.etag)
 	w.Header().Set("X-Content-Type-Options", "nosniff")
+	if r.Header.Get("If-None-Match") == h.etag {
+		w.WriteHeader(http.StatusNotModified)
+		return
+	}
 	w.WriteHeader(http.StatusOK)
 	if r.Method != http.MethodHead {
 		_, _ = w.Write(h.data)

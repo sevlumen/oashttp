@@ -30,7 +30,10 @@ func TestBindPathQueryHeaderAndJSON(t *testing.T) {
 	r.SetPathValue("id", "550e8400-e29b-41d4-a716-446655440000")
 	r.Header.Set("Content-Type", "application/json")
 	r.Header.Set("X-Trace-ID", "trace-1")
-	v, errs := p.Bind(r)
+	v, requestErr, errs := p.Bind(r)
+	if requestErr != nil {
+		t.Fatal(requestErr)
+	}
 	if len(errs) != 0 {
 		t.Fatalf("errors=%#v", errs)
 	}
@@ -68,7 +71,10 @@ func TestBindDateConstraintIntoTime(t *testing.T) {
 	}
 	request := httptest.NewRequest(http.MethodGet, "/reports/2026-08-05", nil)
 	request.SetPathValue("date", "2026-08-05")
-	value, fieldErrors := plan.Bind(request)
+	value, requestErr, fieldErrors := plan.Bind(request)
+	if requestErr != nil {
+		t.Fatal(requestErr)
+	}
 	if len(fieldErrors) != 0 {
 		t.Fatalf("errors=%#v", fieldErrors)
 	}
@@ -84,7 +90,10 @@ func TestOptionalPointerBodyPreservesJSONNull(t *testing.T) {
 	}
 	request := httptest.NewRequest(http.MethodPost, "/optional", strings.NewReader("null"))
 	request.Header.Set("Content-Type", "application/json")
-	value, fieldErrors := plan.Bind(request)
+	value, requestErr, fieldErrors := plan.Bind(request)
+	if requestErr != nil {
+		t.Fatal(requestErr)
+	}
 	if len(fieldErrors) != 0 {
 		t.Fatalf("errors=%#v", fieldErrors)
 	}
@@ -94,23 +103,29 @@ func TestOptionalPointerBodyPreservesJSONNull(t *testing.T) {
 }
 func TestBindRejectsUnknownTrailingOversizedAndDuplicateValues(t *testing.T) {
 	pattern, _ := route.Parse("/users/{id:string}")
-	plan, err := Compile(reflect.TypeOf(UpdateInput{}), pattern, Options{JSONBodyLimit: 32, DisallowUnknownJSONFields: true})
+	plan, err := Compile(reflect.TypeOf(UpdateInput{}), pattern, Options{JSONBodyLimit: 64, DisallowUnknownJSONFields: true})
 	if err != nil {
 		t.Fatal(err)
 	}
 	cases := []struct{ name, body, url string }{
 		{"unknown", `{"fullName":"Alice","extra":true}`, "/users/u-1"},
 		{"trailing", `{"fullName":"Alice"} {}`, "/users/u-1"},
-		{"oversized", `{"fullName":"abcdefghijklmnopqrstuvwxyz"}`, "/users/u-1"},
+		{"oversized", `{"fullName":"abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz"}`, "/users/u-1"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			request := httptest.NewRequest(http.MethodPut, tc.url, strings.NewReader(tc.body))
 			request.SetPathValue("id", "u-1")
 			request.Header.Set("Content-Type", "application/json")
-			_, errs := plan.Bind(request)
-			if len(errs) == 0 {
-				t.Fatal("expected binding error")
+			_, requestErr, errs := plan.Bind(request)
+			if tc.name == "oversized" {
+				if requestErr == nil || requestErr.Status != http.StatusRequestEntityTooLarge {
+					t.Fatalf("request error=%#v", requestErr)
+				}
+				return
+			}
+			if requestErr != nil || len(errs) == 0 {
+				t.Fatalf("request error=%#v field errors=%#v", requestErr, errs)
 			}
 		})
 	}
@@ -119,7 +134,10 @@ func TestBindRejectsUnknownTrailingOversizedAndDuplicateValues(t *testing.T) {
 		t.Fatal(err)
 	}
 	request := httptest.NewRequest(http.MethodGet, "/query?page=1&page=2", nil)
-	_, errs := queryPlan.Bind(request)
+	_, requestErr, errs := queryPlan.Bind(request)
+	if requestErr != nil {
+		t.Fatal(requestErr)
+	}
 	if len(errs) != 1 {
 		t.Fatalf("errors=%#v", errs)
 	}
@@ -131,11 +149,71 @@ func TestBindUsesTextUnmarshaler(t *testing.T) {
 		t.Fatal(err)
 	}
 	request := httptest.NewRequest(http.MethodGet, "/text?value=hello", nil)
-	value, errs := plan.Bind(request)
+	value, requestErr, errs := plan.Bind(request)
+	if requestErr != nil {
+		t.Fatal(requestErr)
+	}
 	if len(errs) != 0 {
 		t.Fatal(errs)
 	}
 	if got := value.Interface().(textInput).Value; got != "HELLO" {
 		t.Fatalf("value=%q", got)
 	}
+}
+
+func TestBindReturnsRequestLevelHTTPFailures(t *testing.T) {
+	pattern, err := route.Parse("/users/{id:string}")
+	if err != nil {
+		t.Fatal(err)
+	}
+	plan, err := Compile(reflect.TypeOf(UpdateInput{}), pattern, Options{JSONBodyLimit: 16, DisallowUnknownJSONFields: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	cases := []struct {
+		name        string
+		contentType string
+		body        string
+		status      int
+		code        string
+	}{
+		{name: "unsupported media type", contentType: "text/plain", body: `{}`, status: http.StatusUnsupportedMediaType, code: "UNSUPPORTED_MEDIA_TYPE"},
+		{name: "payload too large", contentType: "application/json", body: `{"fullName":"this body is too large"}`, status: http.StatusRequestEntityTooLarge, code: "PAYLOAD_TOO_LARGE"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			request := httptest.NewRequest(http.MethodPut, "/users/u-1", strings.NewReader(tc.body))
+			request.SetPathValue("id", "u-1")
+			request.Header.Set("Content-Type", tc.contentType)
+			_, requestErr, fieldErrors := plan.Bind(request)
+			if requestErr == nil || requestErr.Status != tc.status || requestErr.Code != tc.code {
+				t.Fatalf("request error=%#v", requestErr)
+			}
+			if len(fieldErrors) != 0 {
+				t.Fatalf("field errors=%#v", fieldErrors)
+			}
+		})
+	}
+}
+
+func TestRequiredEmptyBodyIsFieldError(t *testing.T) {
+	plan, err := Compile(reflect.TypeOf(UpdateInput{}), mustPattern(t, "/users/{id:string}"), Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	request := httptest.NewRequest(http.MethodPut, "/users/u-1", nil)
+	request.SetPathValue("id", "u-1")
+	_, requestErr, fieldErrors := plan.Bind(request)
+	if requestErr != nil || len(fieldErrors) != 1 {
+		t.Fatalf("request error=%#v field errors=%#v", requestErr, fieldErrors)
+	}
+}
+
+func mustPattern(t *testing.T, value string) route.Pattern {
+	t.Helper()
+	pattern, err := route.Parse(value)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return pattern
 }

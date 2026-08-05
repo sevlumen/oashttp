@@ -1,18 +1,22 @@
 # oashttp
 
-`oashttp` is a zero-third-party-dependency Go library for typed `net/http` endpoints, compiled request binding and validation, RFC 9457-style Problem Details, and OpenAPI 3.1 JSON generation.
+[![CI](https://github.com/quang020102/go-osm/actions/workflows/ci.yml/badge.svg)](https://github.com/quang020102/go-osm/actions/workflows/ci.yml)
 
-> The module path is `github.com/quang020102/go-osm` and the minimum supported Go version is 1.22.
+`oashttp` is a zero-third-party-runtime-dependency Go library for typed `net/http` JSON endpoints, compiled request binding and validation, RFC 9457-style Problem Details, authorization hooks, panic recovery, and OpenAPI 3.1 generation.
+
+**Stable release:** `v1.0.0`
+
+**Module:** `github.com/quang020102/go-osm`
+
+**Minimum Go version:** Go 1.22
 
 ## Install
 
 ```bash
-go get github.com/quang020102/go-osm
+go get github.com/quang020102/go-osm@v1.0.0
 ```
 
-The core module has zero third-party Go dependencies.
-Swagger UI is loaded by the browser from a pinned CDN URL.
-The API server does not download or execute frontend assets.
+The Go module has no third-party runtime dependencies. Swagger UI assets are loaded by the browser from a pinned CDN by default and can be replaced with an application-controlled mirror.
 
 ## Quick start
 
@@ -21,7 +25,9 @@ package main
 
 import (
     "context"
+    "log"
     "net/http"
+    "time"
 
     oashttp "github.com/quang020102/go-osm"
 )
@@ -37,6 +43,9 @@ type UserDTO struct {
 func main() {
     app := oashttp.New(oashttp.Config{
         Info: oashttp.Info{Title: "Users API", Version: "1.0.0"},
+        ErrorHandler: func(_ context.Context, err error) {
+            log.Printf("request failure: %v", err)
+        },
     })
 
     users := app.Group("/api/v1").Group("/users")
@@ -46,28 +55,33 @@ func main() {
         WithOperationID("getUser").
         WithTags("Users").
         WithSummary("Get user").
-        Produces(http.StatusOK).
-        ProducesProblem(http.StatusBadRequest)
+        Produces(http.StatusOK)
 
-    _ = app.MapOpenAPI("/openapi.json")
-    _ = app.MapSwaggerUI("/swagger", oashttp.SwaggerUIConfig{
-        DocumentURL: "/openapi.json",
-    })
+    if err := app.MapOpenAPI("/openapi.json"); err != nil {
+        log.Fatal(err)
+    }
+    if err := app.MapSwaggerUI("/swagger", oashttp.SwaggerUIConfig{DocumentURL: "/openapi.json"}); err != nil {
+        log.Fatal(err)
+    }
 
-    _ = http.ListenAndServe(":8080", app.MustBuild())
+    server := &http.Server{
+        Addr:              ":8080",
+        Handler:           app.MustBuild(),
+        ReadHeaderTimeout: 5 * time.Second,
+        ReadTimeout:       15 * time.Second,
+        WriteTimeout:      30 * time.Second,
+        IdleTimeout:       60 * time.Second,
+        MaxHeaderBytes:    1 << 20,
+    }
+    log.Fatal(server.ListenAndServe())
 }
 ```
 
-Open:
-
-- `http://localhost:8080/openapi.json`
-- `http://localhost:8080/swagger`
-
-The default OpenAPI server is relative (`/`), so Swagger calls the same origin, hostname, port, and reverse-proxy entry point used to load the page.
+Open `/openapi.json` for the generated document and `/swagger` for Swagger UI. The default OpenAPI server URL is relative (`/`), so documentation uses the same origin and reverse-proxy entry point as the page.
 
 ## Binding
 
-Top-level input types are structs. Exported fields can bind from:
+Top-level input types are non-pointer structs. Exported fields can bind from:
 
 ```go
 type UpdateInput struct {
@@ -80,19 +94,38 @@ type UpdateInput struct {
 
 Supported route constraints are `string`, `uuid`, `int`, `int64`, `bool`, `date`, and `datetime`.
 
-JSON request bodies are limited to 1 MiB by default, reject unknown fields by default, and must contain exactly one JSON value. Set `Config.JSONBodyLimit` or `Config.AllowUnknownJSONFields` to override those defaults.
+JSON bodies:
+
+- are limited to 1 MiB by default;
+- require `Content-Type: application/json` when non-empty;
+- reject unknown fields by default;
+- must contain exactly one JSON value;
+- return `413` when over the configured limit;
+- return `415` for an unsupported media type.
+
+Use `Config.JSONBodyLimit` and `Config.AllowUnknownJSONFields` to change the defaults.
 
 ## Validation
 
-Call `.WithValidation()` to compile and execute validation tags. Version 1 supports:
+Call `.WithValidation()` to compile validation rules once at build time. Version 1 supports:
 
 `required`, `min`, `max`, `len`, `email`, `uuid`, `e164`, `oneof`, `gte`, and `lte`.
 
-Application-specific validation can be added through `Config.Validator` without introducing a dependency into the library.
+Application-specific validation can be added with `Config.Validator`.
 
-## Security
+## Results and errors
 
-Protected operations use application-provided interfaces. `oashttp` does not parse JWTs or validate signatures itself.
+Success helpers include `OK`, `Created`, `Accepted`, `NoContent`, and `JSON(status, value)`. JSON is serialized before response headers are committed, so an unsupported output value returns a `500 RESPONSE_SERIALIZATION_FAILED` Problem Details response instead of a false `2xx`.
+
+Framework errors use `application/problem+json`, `Cache-Control: no-store`, and `X-Content-Type-Options: nosniff`. Generated OpenAPI operations automatically document applicable `400`, `401`, `403`, `413`, `415`, and `500` responses.
+
+## Panic recovery
+
+An outer recovery middleware is enabled by default. Recovered panics are reported through `Config.ErrorHandler`; when no response has been committed, the client receives a generic `500` Problem Details response. Set `Config.DisablePanicRecovery` only when another outer server layer provides equivalent recovery.
+
+## Security integration
+
+Protected operations use application-provided interfaces. `oashttp` deliberately does not parse JWTs or validate signatures.
 
 ```go
 type Authenticator interface {
@@ -100,15 +133,19 @@ type Authenticator interface {
 }
 ```
 
-Use:
+Protect an operation with:
 
 ```go
 operation.RequireFeatureAndPermission("core.users", "core.users.update")
 ```
 
-When no custom `Authorizer` is configured, exact feature and permission membership is required on the authenticated principal.
+When no custom `Authorizer` is configured, exact feature and permission membership is required. Authentication failures return RFC 6750-compatible `WWW-Authenticate: Bearer` challenges.
 
-## Private Swagger asset mirror
+## OpenAPI and Swagger UI
+
+The generated document uses OpenAPI 3.1 and omits `jsonSchemaDialect`, which selects the default OpenAPI Schema dialect and avoids the Swagger UI custom-dialect warning.
+
+The OpenAPI endpoint supports `GET`, `HEAD`, ETag-based conditional requests, and short public caching. Swagger's inline initializer is authorized by a SHA-256 CSP hash; the CSP does not require `unsafe-inline`.
 
 The default browser assets are pinned to `swagger-ui-dist@5.32.11` on jsDelivr. Override both URLs for an internal mirror:
 
@@ -120,19 +157,33 @@ _ = app.MapSwaggerUI("/swagger", oashttp.SwaggerUIConfig{
 })
 ```
 
-No network access is required to build, test, or run the API server. Only a browser loading the Swagger page contacts the configured asset origin.
+## Production boundaries
 
-## Development gates
+`oashttp` is production-oriented for typed JSON APIs. The application remains responsible for:
+
+- TLS termination and trusted proxy configuration;
+- server timeouts, graceful shutdown, and connection limits;
+- JWT/OAuth/OIDC implementation and key management;
+- rate limiting, abuse controls, CORS, and CSRF protection;
+- logs, metrics, traces, and alerting;
+- database transactions and business authorization policy.
+
+Endpoints requiring `application/x-www-form-urlencoded`, browser redirects, HTML, streaming, WebSockets, or custom representations should use standard `net/http` handlers alongside the typed JSON API.
+
+## Quality gates
 
 ```bash
+gofmt -w .
 go mod tidy
-go list -m all
 go vet ./...
-go test ./...
+go test ./... -shuffle=on -count=3
 go test -race ./...
+go test ./... -coverprofile=coverage.out
+go test ./internal/route -run=^$ -fuzz=FuzzRouteParserNeverPanics -fuzztime=15s
+go test ./internal/binding -run=^$ -fuzz=FuzzCompiledBinderNeverPanics -fuzztime=15s
 go test ./... -bench=. -run=^$ -benchtime=100ms
 ```
 
-`go list -m all` must print only `github.com/quang020102/go-osm`.
+CI enforces a total statement coverage floor of 70%, verifies the golden OpenAPI document, runs `govulncheck`, and tests Go 1.22 through Go 1.26.
 
-See `examples/users-api` for authentication, validation, Problem Details, golden OpenAPI, and Swagger UI coverage.
+See `examples/users-api`, `SECURITY.md`, `SUPPORT.md`, `CONTRIBUTING.md`, and `CHANGELOG.md`.

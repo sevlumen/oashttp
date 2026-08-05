@@ -7,7 +7,7 @@ import (
 )
 
 func TestMarshalMinimalDocument(t *testing.T) {
-	doc := Document{OpenAPI: "3.1.0", JSONSchemaDialect: "https://json-schema.org/draft/2020-12/schema", Info: Info{Title: "Users API", Version: "1.0.0"}, Servers: []Server{{URL: "/", Description: "Current server"}}, Paths: map[string]*PathItem{}, Components: Components{Schemas: map[string]*Schema{}}}
+	doc := Document{OpenAPI: "3.1.0", JSONSchemaDialect: "https://spec.openapis.org/oas/3.1/dialect/base", Info: Info{Title: "Users API", Version: "1.0.0"}, Servers: []Server{{URL: "/", Description: "Current server"}}, Paths: map[string]*PathItem{}, Components: Components{Schemas: map[string]*Schema{}}}
 	data, err := Marshal(&doc)
 	if err != nil {
 		t.Fatal(err)

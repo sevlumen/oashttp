@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"reflect"
 	"testing"
 )
 
@@ -30,7 +31,7 @@ func TestBuildFreezesApplicationAndIsIdempotent(t *testing.T) {
 	if firstErr != nil || secondErr != nil {
 		t.Fatalf("Build errors = %v, %v", firstErr, secondErr)
 	}
-	if first != second {
+	if reflect.ValueOf(first).Pointer() != reflect.ValueOf(second).Pointer() {
 		t.Fatal("repeated Build must return the same handler")
 	}
 	err := app.Use(func(next http.Handler) http.Handler { return next })

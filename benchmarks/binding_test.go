@@ -31,7 +31,10 @@ func BenchmarkBindCompiledInput(b *testing.B) {
 		req := httptest.NewRequest(http.MethodPut, "/users/550e8400-e29b-41d4-a716-446655440000?page=1", strings.NewReader(`{"name":"Alice","age":30}`))
 		req.SetPathValue("id", "550e8400-e29b-41d4-a716-446655440000")
 		req.Header.Set("Content-Type", "application/json")
-		_, errs := plan.Bind(req)
+		_, requestErr, errs := plan.Bind(req)
+		if requestErr != nil {
+			b.Fatal(requestErr)
+		}
 		if len(errs) != 0 {
 			b.Fatal(errs)
 		}

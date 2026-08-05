@@ -110,11 +110,10 @@ func (a *App) build() {
 	}
 
 	document := &oas31.Document{
-		OpenAPI:           "3.1.0",
-		JSONSchemaDialect: "https://json-schema.org/draft/2020-12/schema",
-		Info:              oas31.Info{Title: cfg.Info.Title, Version: cfg.Info.Version, Description: cfg.Info.Description},
-		Paths:             map[string]*oas31.PathItem{},
-		Components:        oas31.Components{Schemas: map[string]*oas31.Schema{}, Responses: map[string]oas31.Response{}, SecuritySchemes: map[string]oas31.SecurityScheme{}},
+		OpenAPI:    "3.1.0",
+		Info:       oas31.Info{Title: cfg.Info.Title, Version: cfg.Info.Version, Description: cfg.Info.Description},
+		Paths:      map[string]*oas31.PathItem{},
+		Components: oas31.Components{Schemas: map[string]*oas31.Schema{}, Responses: map[string]oas31.Response{}, SecuritySchemes: map[string]oas31.SecurityScheme{}},
 	}
 	for _, server := range cfg.Servers {
 		document.Servers = append(document.Servers, oas31.Server{URL: server.URL, Description: server.Description})
@@ -222,6 +221,9 @@ func (a *App) build() {
 	var handler http.Handler = mux
 	for index := len(middlewares) - 1; index >= 0; index-- {
 		handler = middlewares[index](handler)
+	}
+	if !cfg.DisablePanicRecovery {
+		handler = recoverPanics(handler, cfg.ErrorHandler)
 	}
 	a.builtHandler = handler
 }

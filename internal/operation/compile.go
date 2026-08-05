@@ -66,31 +66,46 @@ func Compile(def *Definition, opts Options) (Compiled, error) {
 	if err != nil {
 		return Compiled{}, fmt.Errorf("%s %s (%s -> %s): %w", def.Method, def.UserRoute, def.InputType, def.OutputType, err)
 	}
+
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
 		if def.Feature != "" {
-			next, status, code, detail := internalsecurity.AuthenticateAndAuthorize(ctx, r.Header.Get("Authorization"), def.Feature, def.Permission, opts.Authenticator, opts.Authorizer)
-			if status != 0 {
-				writeProblem(w, status, code, detail)
+			next, failure := internalsecurity.AuthenticateAndAuthorize(ctx, r.Header.Get("Authorization"), def.Feature, def.Permission, opts.Authenticator, opts.Authorizer)
+			if failure != nil {
+				if failure.Challenge != "" {
+					w.Header().Set("WWW-Authenticate", failure.Challenge)
+				}
+				writeProblem(w, failure.Status, failure.Code, failure.Detail)
 				return
 			}
 			ctx = next
 			r = r.WithContext(ctx)
 		}
-		input, fieldErrors := bindPlan.Bind(r)
-		if def.Validation {
-			fieldErrors = append(fieldErrors, validationPlan.Validate(input.Interface())...)
-			if opts.Validator != nil {
-				fieldErrors = append(fieldErrors, opts.Validator.Validate(ctx, input.Interface())...)
-			}
+
+		input, requestErr, fieldErrors := bindPlan.Bind(r)
+		if requestErr != nil {
+			writeProblem(w, requestErr.Status, requestErr.Code, requestErr.Detail)
+			return
 		}
 		if len(fieldErrors) > 0 {
 			writeValidationProblem(w, fieldErrors)
 			return
 		}
+
+		if def.Validation {
+			fieldErrors = validationPlan.Validate(input.Interface())
+			if opts.Validator != nil {
+				fieldErrors = append(fieldErrors, opts.Validator.Validate(ctx, input.Interface())...)
+			}
+			if len(fieldErrors) > 0 {
+				writeValidationProblem(w, fieldErrors)
+				return
+			}
+		}
+
 		result := def.Invoke(ctx, input)
 		if result == nil {
-			writeProblem(w, 500, "NIL_RESULT", "The operation returned no result")
+			writeProblem(w, http.StatusInternalServerError, "NIL_RESULT", "The operation returned no result")
 			return
 		}
 		result.WriteHTTP(w, func(err error) {
@@ -109,6 +124,8 @@ func compileOAS(def *Definition, plan *binding.Plan, pattern route.Pattern, regi
 	if def.OperationID == "" {
 		return nil, fmt.Errorf("operation ID is required")
 	}
+
+	params, body := plan.Documentation()
 	success := false
 	responses := map[string]oas31.Response{}
 	for status, spec := range def.Responses {
@@ -124,9 +141,8 @@ func compileOAS(def *Definition, plan *binding.Plan, pattern route.Pattern, regi
 		}
 		response := oas31.Response{Description: description}
 		if spec.Kind == ResponseProblem {
-			ref := oas31.Schema{"$ref": "#/components/schemas/ProblemDetails"}
-			response.Content = map[string]oas31.MediaType{"application/problem+json": {Schema: &ref}}
-		} else if status != http.StatusNoContent {
+			response = problemResponse(description)
+		} else if statusAllowsResponseBody(status) {
 			ref, err := registry.Ref(def.OutputType)
 			if err != nil {
 				return nil, err
@@ -138,8 +154,26 @@ func compileOAS(def *Definition, plan *binding.Plan, pattern route.Pattern, regi
 	if !success {
 		return nil, fmt.Errorf("at least one successful response must be declared")
 	}
-	operation := &oas31.Operation{OperationID: def.OperationID, Tags: append([]string(nil), def.Tags...), Summary: def.Summary, Description: def.Description, Responses: responses}
-	params, body := plan.Documentation()
+
+	addProblemResponse(responses, http.StatusBadRequest)
+	if body != nil {
+		addProblemResponse(responses, http.StatusRequestEntityTooLarge)
+		addProblemResponse(responses, http.StatusUnsupportedMediaType)
+	}
+	if def.Feature != "" {
+		addProblemResponse(responses, http.StatusUnauthorized)
+		addProblemResponse(responses, http.StatusForbidden)
+	}
+	addProblemResponse(responses, http.StatusInternalServerError)
+
+	operation := &oas31.Operation{
+		OperationID: def.OperationID,
+		Tags:        append([]string(nil), def.Tags...),
+		Summary:     def.Summary,
+		Description: def.Description,
+		Responses:   responses,
+	}
+
 	routeConstraints := map[string]route.Constraint{}
 	for _, p := range pattern.Parameters {
 		routeConstraints[p.Name] = route.Constraints[p.Constraint]
@@ -175,6 +209,28 @@ func compileOAS(def *Definition, plan *binding.Plan, pattern route.Pattern, regi
 	}
 	return operation, nil
 }
+
+func statusAllowsResponseBody(status int) bool {
+	return status >= 200 && status != http.StatusNoContent && status != http.StatusNotModified
+}
+
+func problemResponse(description string) oas31.Response {
+	ref := oas31.Schema{"$ref": "#/components/schemas/ProblemDetails"}
+	return oas31.Response{Description: description, Content: map[string]oas31.MediaType{"application/problem+json": {Schema: &ref}}}
+}
+
+func addProblemResponse(responses map[string]oas31.Response, status int) {
+	key := strconv.Itoa(status)
+	if _, exists := responses[key]; exists {
+		return
+	}
+	description := http.StatusText(status)
+	if description == "" {
+		description = "Error"
+	}
+	responses[key] = problemResponse(description)
+}
+
 func writeValidationProblem(w http.ResponseWriter, errors []core.FieldError) {
 	grouped := map[string][]string{}
 	for _, field := range errors {
@@ -184,8 +240,9 @@ func writeValidationProblem(w http.ResponseWriter, errors []core.FieldError) {
 		}
 		grouped[key] = append(grouped[key], field.Messages...)
 	}
-	writeProblemObject(w, core.ProblemDetails{Title: "Bad Request", Status: 400, Code: "VALIDATION_FAILED", Detail: "The request is invalid", Errors: grouped})
+	writeProblemObject(w, core.ProblemDetails{Title: "Bad Request", Status: http.StatusBadRequest, Code: "VALIDATION_FAILED", Detail: "The request is invalid", Errors: grouped})
 }
+
 func writeProblem(w http.ResponseWriter, status int, code, detail string) {
 	title := http.StatusText(status)
 	if title == "" {
@@ -193,8 +250,16 @@ func writeProblem(w http.ResponseWriter, status int, code, detail string) {
 	}
 	writeProblemObject(w, core.ProblemDetails{Title: title, Status: status, Code: code, Detail: detail})
 }
+
 func writeProblemObject(w http.ResponseWriter, p core.ProblemDetails) {
+	payload, err := json.Marshal(p)
+	if err != nil {
+		payload = []byte(`{"title":"Internal Server Error","status":500,"code":"PROBLEM_SERIALIZATION_FAILED"}`)
+		p.Status = http.StatusInternalServerError
+	}
 	w.Header().Set("Content-Type", "application/problem+json")
+	w.Header().Set("Cache-Control", "no-store")
+	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.WriteHeader(p.Status)
-	_ = json.NewEncoder(w).Encode(p)
+	_, _ = w.Write(payload)
 }

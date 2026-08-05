@@ -1,6 +1,7 @@
 package binding
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"reflect"
@@ -9,7 +10,7 @@ import (
 	"github.com/quang020102/go-osm/internal/route"
 )
 
-func (p *Plan) Bind(r *http.Request) (reflect.Value, []core.FieldError) {
+func (p *Plan) Bind(r *http.Request) (reflect.Value, *RequestError, []core.FieldError) {
 	value := reflect.New(p.typ).Elem()
 	var errs []core.FieldError
 	constraints := map[string]route.Constraint{}
@@ -44,6 +45,10 @@ func (p *Plan) Bind(r *http.Request) (reflect.Value, []core.FieldError) {
 		case sourceBody:
 			location = "body"
 			if err := decodeBody(r, target, p.options.JSONBodyLimit, p.options.DisallowUnknownJSONFields, field.required); err != nil {
+				var requestErr *RequestError
+				if errors.As(err, &requestErr) {
+					return value, requestErr, errs
+				}
 				errs = append(errs, fieldError(location, field.name, err.Error()))
 			}
 			continue
@@ -61,7 +66,7 @@ func (p *Plan) Bind(r *http.Request) (reflect.Value, []core.FieldError) {
 			errs = append(errs, fieldError(location, field.name, setErr.Error()))
 		}
 	}
-	return value, errs
+	return value, nil, errs
 }
 
 func fieldError(location, field, message string) core.FieldError {

@@ -28,6 +28,6 @@ func FuzzCompiledBinderNeverPanics(f *testing.F) {
 	f.Fuzz(func(t *testing.T, query, body string) {
 		req := httptest.NewRequest(http.MethodPost, "/fuzz?value="+url.QueryEscape(query), strings.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
-		_, _ = plan.Bind(req)
+		_, _, _ = plan.Bind(req)
 	})
 }

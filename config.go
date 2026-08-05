@@ -31,6 +31,11 @@ type Config struct {
 	ErrorHandler           func(context.Context, error)
 	Authenticator          Authenticator
 	Authorizer             Authorizer
+
+	// DisablePanicRecovery disables the default outer recovery middleware.
+	// Production services should normally leave recovery enabled and provide an
+	// ErrorHandler that reports recovered panics to their observability system.
+	DisablePanicRecovery bool
 }
 
 type runtimeConfig struct {
