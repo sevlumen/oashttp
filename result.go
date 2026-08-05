@@ -7,13 +7,16 @@ import (
 	"net/http"
 
 	"github.com/quang020102/go-osm/internal/core"
+	internalfailure "github.com/quang020102/go-osm/internal/failure"
 )
 
 type Result[T any] struct {
-	status  int
-	headers http.Header
-	value   *T
-	problem *ProblemDetails
+	status      int
+	headers     http.Header
+	body        any
+	contentType string
+	failure     *Failure
+	noStore     bool
 }
 
 func OK[T any](value T) Result[T]       { return JSON(http.StatusOK, value) }
@@ -22,7 +25,13 @@ func Accepted[T any](value T) Result[T] { return JSON(http.StatusAccepted, value
 
 // JSON creates a JSON response with an explicit HTTP status code.
 func JSON[T any](status int, value T) Result[T] {
-	return Result[T]{status: status, headers: make(http.Header), value: &value}
+	return Result[T]{status: status, headers: make(http.Header), body: value, contentType: "application/json"}
+}
+
+// ErrorJSON creates an application/json error response with a caller-defined body.
+// Declare its OpenAPI schema with ProducesResponse.
+func ErrorJSON[T any, E any](status int, value E) Result[T] {
+	return Result[T]{status: status, headers: make(http.Header), body: value, contentType: "application/json", noStore: true}
 }
 
 func NoContent[T any]() Result[T] {
@@ -37,38 +46,24 @@ func (r Result[T]) WithHeader(name, value string) Result[T] {
 	return r
 }
 
+// WriteHTTP writes the result using the default Problem Details formatter.
+// Applications built through App automatically use Config.FailureFormatter.
 func (r Result[T]) WriteHTTP(w http.ResponseWriter, onError func(error)) {
+	r.WriteHTTPWithFailureFormatter(w, onError, ProblemDetailsFormatter{}, "application/problem+json")
+}
+
+func (r Result[T]) WriteHTTPWithFailureFormatter(w http.ResponseWriter, onError func(error), formatter core.FailureFormatter, failureContentType string) {
 	status := r.status
 	if status == 0 {
 		status = http.StatusOK
 	}
 	if status < 100 || status > 599 {
-		err := fmt.Errorf("oashttp: invalid result status %d", status)
-		reportWriteError(onError, err)
-		writeSerializationProblem(w)
-		return
-	}
-
-	var (
-		payload     []byte
-		contentType string
-		err         error
-	)
-
-	switch {
-	case r.problem != nil:
-		contentType = "application/problem+json"
-		payload, err = json.Marshal(r.problem)
-	case !statusAllowsBody(status):
-		// RFC 9110 disallows payload bodies on 1xx, 204, and 304 responses.
-	case r.value != nil:
-		contentType = "application/json"
-		payload, err = json.Marshal(r.value)
-	}
-
-	if err != nil {
-		reportWriteError(onError, fmt.Errorf("oashttp: encode response: %w", err))
-		writeSerializationProblem(w)
+		reportWriteError(onError, fmt.Errorf("oashttp: invalid result status %d", status))
+		internalfailure.WriteResolved(w, formatter, failureContentType, core.Failure{
+			Status: http.StatusInternalServerError,
+			Code:   "RESPONSE_SERIALIZATION_FAILED",
+			Detail: "The response could not be serialized",
+		}, onError)
 		return
 	}
 
@@ -77,11 +72,35 @@ func (r Result[T]) WriteHTTP(w http.ResponseWriter, onError func(error)) {
 			w.Header().Add(key, value)
 		}
 	}
-	if contentType != "" {
-		w.Header().Set("Content-Type", contentType)
+	if r.failure != nil {
+		failure := *r.failure
+		if failure.Status == 0 {
+			failure.Status = status
+		}
+		internalfailure.WriteResolved(w, formatter, failureContentType, failure, onError)
+		return
+	}
+
+	var payload []byte
+	if statusAllowsBody(status) && r.body != nil {
+		var err error
+		payload, err = json.Marshal(r.body)
+		if err != nil {
+			reportWriteError(onError, fmt.Errorf("oashttp: encode response: %w", err))
+			internalfailure.WriteResolved(w, formatter, failureContentType, core.Failure{
+				Status: http.StatusInternalServerError,
+				Code:   "RESPONSE_SERIALIZATION_FAILED",
+				Detail: "The response could not be serialized",
+			}, onError)
+			return
+		}
+	}
+
+	if r.contentType != "" && statusAllowsBody(status) {
+		w.Header().Set("Content-Type", r.contentType)
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 	}
-	if r.problem != nil {
+	if r.noStore {
 		w.Header().Set("Cache-Control", "no-store")
 	}
 	w.WriteHeader(status)
@@ -94,20 +113,6 @@ func (r Result[T]) WriteHTTP(w http.ResponseWriter, onError func(error)) {
 
 func statusAllowsBody(status int) bool {
 	return status >= 200 && status != http.StatusNoContent && status != http.StatusNotModified
-}
-
-func writeSerializationProblem(w http.ResponseWriter) {
-	payload, _ := json.Marshal(core.ProblemDetails{
-		Title:  http.StatusText(http.StatusInternalServerError),
-		Status: http.StatusInternalServerError,
-		Code:   "RESPONSE_SERIALIZATION_FAILED",
-		Detail: "The response could not be serialized",
-	})
-	w.Header().Set("Content-Type", "application/problem+json")
-	w.Header().Set("Cache-Control", "no-store")
-	w.Header().Set("X-Content-Type-Options", "nosniff")
-	w.WriteHeader(http.StatusInternalServerError)
-	_, _ = w.Write(payload)
 }
 
 func (r Result[T]) write(w http.ResponseWriter) { r.WriteHTTP(w, nil) }

@@ -31,6 +31,7 @@ type Config struct {
 	ErrorHandler           func(context.Context, error)
 	Authenticator          Authenticator
 	Authorizer             Authorizer
+	FailureFormatter       FailureFormatter
 
 	// DisablePanicRecovery disables the default outer recovery middleware.
 	// Production services should normally leave recovery enabled and provide an
@@ -50,11 +51,11 @@ func normalizeConfig(cfg Config) runtimeConfig {
 	if cfg.JSONBodyLimit == 0 {
 		cfg.JSONBodyLimit = 1 << 20
 	}
-	if len(cfg.Servers) == 0 {
-		cfg.Servers = []Server{{URL: "/", Description: "Current server"}}
-	}
 	if cfg.ErrorHandler == nil {
 		cfg.ErrorHandler = func(_ context.Context, err error) { log.Printf("oashttp: %v", err) }
+	}
+	if cfg.FailureFormatter == nil {
+		cfg.FailureFormatter = ProblemDetailsFormatter{}
 	}
 	return runtimeConfig{Config: cfg, DisallowUnknownJSONFields: !cfg.AllowUnknownJSONFields}
 }

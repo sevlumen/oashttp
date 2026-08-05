@@ -22,7 +22,9 @@ type compileOutput struct {
 }
 type compileResult struct{}
 
-func (compileResult) WriteHTTP(w http.ResponseWriter, _ func(error)) { w.WriteHeader(http.StatusOK) }
+func (compileResult) WriteHTTPWithFailureFormatter(w http.ResponseWriter, _ func(error), _ core.FailureFormatter, _ string) {
+	w.WriteHeader(http.StatusOK)
+}
 
 func TestCompileBuildsRuntimeAndOpenAPIOperation(t *testing.T) {
 	def := &Definition{Method: http.MethodGet, UserRoute: "/users/{id:uuid}", FullRoute: "/users/{id:uuid}", InputType: reflect.TypeOf(compileInput{}), OutputType: reflect.TypeOf(compileOutput{}), OperationID: "getUser", Responses: map[int]ResponseSpec{http.StatusOK: {Kind: ResponseJSON, Description: "OK"}}, Invoke: func(context.Context, reflect.Value) core.ResultWriter { return compileResult{} }}
@@ -93,7 +95,7 @@ func TestCompileRejectsInvalidDefinitions(t *testing.T) {
 		{name: "invalid response", mutate: func(d *Definition) { d.Responses[999] = ResponseSpec{} }},
 		{name: "invalid route", mutate: func(d *Definition) { d.FullRoute = "users" }},
 		{name: "missing success response", mutate: func(d *Definition) {
-			d.Responses = map[int]ResponseSpec{http.StatusBadRequest: {Kind: ResponseProblem}}
+			d.Responses = map[int]ResponseSpecthttp.StatusBadRequest: {Kind: ResponseProblem}}
 		}},
 	}
 	for _, tc := range tests {
@@ -222,5 +224,34 @@ func TestProtectedCompileAndRuntimeFailures(t *testing.T) {
 	compiled.Handler.ServeHTTP(recorder, request)
 	if recorder.Code != http.StatusUnauthorized || recorder.Header().Get("WWW-Authenticate") != `Bearer error="invalid_token"` {
 		t.Fatalf("status=%d challenge=%q", recorder.Code, recorder.Header().Get("WWW-Authenticate"))
+	}
+}
+
+func TestCompileRejectsInvalidCustomResponses(t *testing.T) {
+	tests := []struct {
+		name string
+		spec ResponseSpec
+	}{
+		{
+			name: "nil model",
+			spec: ResponseSpec{Kind: ResponseCustom, ContentType: "application/json"},
+		},
+		{
+			name: "invalid content type",
+			spec: ResponseSpec{Kind: ResponseCustom, ContentType: "not a media type", ModelType: reflect.TypeOf(compileOutput{})},
+		},
+		{
+			name: "unsupported model",
+			spec: ResponseSpec{Kind: ResponseCustom, ContentType: "application/json", ModelType: reflect.TypeOf(make(chan int))},
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			def := validDefinition()
+			def.Responses[http.StatusConflict] = tc.spec
+			if _, err := Compile(def, Options{Registry: schema.NewRegistry()}); err == nil {
+				t.Fatal("expected custom response build error")
+			}
+		})
 	}
 }

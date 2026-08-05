@@ -58,3 +58,19 @@ func TestRecoveryCanBeDisabled(t *testing.T) {
 	}()
 	app.MustBuild().ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/panic", nil))
 }
+
+func TestRecoveryUsesConfiguredFailureFormatter(t *testing.T) {
+	app := New(Config{
+		Info:             Info{Title: "Recovery", Version: "1.0.1"},
+		FailureFormatter: apiErrorFormatter{},
+	})
+	MapGet(app.Group(""), "/panic-custom", func(context.Context, struct{}) Result[struct{}] {
+		panic("boom")
+	}).WithOperationID("panicCustom").Produces(http.StatusOK)
+
+	recorder := httptest.NewRecorder()
+	app.MustBuild().ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/panic-custom", nil))
+	if recorder.Code != http.StatusInternalServerError || recorder.Header().Get("Content-Type") != "application/json" {
+		t.Fatalf("status=%d headers=%v body=%s", recorder.Code, recorder.Header(), recorder.Body.String())
+	}
+}

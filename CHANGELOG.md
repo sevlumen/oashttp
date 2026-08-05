@@ -2,6 +2,25 @@
 
 All notable changes to this project are documented here. The project follows Semantic Versioning.
 
+## [1.0.1] - 2026-08-05
+
+### Added
+
+- `Config.FailureFormatter` for application-defined framework failure bodies, media types, and OpenAPI schemas.
+- `Failure`, `Fail`, and `ProblemDetailsFormatter` public APIs.
+- `ErrorJSON` for endpoint-specific JSON error envelopes.
+- `ProducesResponse` for documenting caller-defined response schemas and media types.
+
+### Changed
+
+- Omit the OpenAPI `servers` field when `Config.Servers` is empty instead of injecting `Current server`.
+- Route binding, validation, authentication, panic, nil-result, and serialization failures through the configured formatter.
+- Register only the configured failure schema; custom formatters no longer expose the default `ProblemDetails` component.
+
+### Compatibility
+
+The default formatter preserves the `v1.0.0` Problem Details runtime and OpenAPI behavior. All new APIs are additive.
+
 ## [1.0.0] - 2026-08-05
 
 ### Added

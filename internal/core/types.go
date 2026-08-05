@@ -17,7 +17,7 @@ type FieldError struct {
 }
 
 type ResultWriter interface {
-	WriteHTTP(http.ResponseWriter, func(error))
+	WriteHTTPWithFailureFormatter(http.ResponseWriter, func(error), FailureFormatter, string)
 }
 
 type Validator interface {

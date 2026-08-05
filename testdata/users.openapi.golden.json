@@ -226,11 +226,5 @@
         "x-permission": "core.users.update"
       }
     }
-  },
-  "servers": [
-    {
-      "description": "Current server",
-      "url": "/"
-    }
-  ]
+  }
 }

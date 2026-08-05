@@ -4,7 +4,9 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"net/http/httptest"
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -19,8 +21,11 @@ func TestNewAppliesZeroDependencyDefaults(t *testing.T) {
 	if !app.config.DisallowUnknownJSONFields {
 		t.Fatal("unknown JSON fields must be rejected by default")
 	}
-	if len(app.config.Servers) != 1 || app.config.Servers[0].URL != "/" {
+	if len(app.config.Servers) != 0 {
 		t.Fatalf("Servers = %#v", app.config.Servers)
+	}
+	if app.config.FailureFormatter == nil {
+		t.Fatal("FailureFormatter must default to ProblemDetailsFormatter")
 	}
 }
 
@@ -73,4 +78,38 @@ func asError(value any) error {
 		return err
 	}
 	return nil
+}
+
+type invalidFailureFormatter struct{}
+
+func (invalidFailureFormatter) ContentType() string { return "invalid content type" }
+func (invalidFailureFormatter) Model() any          { return struct{}{} }
+func (invalidFailureFormatter) Format(Failure) any  { return struct{}{} }
+
+func TestBuildRejectsInvalidFailureFormatter(t *testing.T) {
+	app := New(Config{
+		Info:             Info{Title: "Invalid formatter", Version: "1.0.1"},
+		FailureFormatter: invalidFailureFormatter{},
+	})
+	if _, err := app.Build(); err == nil {
+		t.Fatal("expected FailureFormatter build error")
+	}
+}
+
+func TestConfiguredServersRemainInOpenAPI(t *testing.T) {
+	app := New(Config{
+		Info:    Info{Title: "Servers", Version: "1.0.1"},
+		Servers: []Server{{URL: "https://api.example.com", Description: "Production"}},
+	})
+	MapGet(app.Group(""), "/health", func(context.Context, struct{}) Result[struct{}] {
+		return OK(struct{}{})
+	}).WithOperationID("healthWithServer").Produces(http.StatusOK)
+	if err := app.MapOpenAPI("/openapi.json"); err != nil {
+		t.Fatal(err)
+	}
+	recorder := httptest.NewRecorder()
+	app.MustBuild().ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/openapi.json", nil))
+	if !strings.Contains(recorder.Body.String(), `"url":"https://api.example.com"`) {
+		t.Fatalf("body=%s", recorder.Body.String())
+	}
 }

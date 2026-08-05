@@ -2,14 +2,16 @@ package operation
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
+	"mime"
 	"net/http"
+	"reflect"
 	"strconv"
 	"strings"
 
 	"github.com/quang020102/go-osm/internal/binding"
 	"github.com/quang020102/go-osm/internal/core"
+	internalfailure "github.com/quang020102/go-osm/internal/failure"
 	"github.com/quang020102/go-osm/internal/oas31"
 	"github.com/quang020102/go-osm/internal/route"
 	"github.com/quang020102/go-osm/internal/schema"
@@ -24,6 +26,10 @@ type Options struct {
 	Authenticator core.Authenticator
 	Authorizer    core.Authorizer
 	ErrorHandler  func(context.Context, error)
+
+	FailureFormatter   core.FailureFormatter
+	FailureContentType string
+	FailureModelType   reflect.Type
 }
 type Compiled struct {
 	Pattern   route.Pattern
@@ -39,9 +45,18 @@ func Compile(def *Definition, opts Options) (Compiled, error) {
 	if (def.Feature == "") != (def.Permission == "") {
 		return Compiled{}, fmt.Errorf("%s %s (%s): feature and permission must be configured together", def.Method, def.UserRoute, def.InputType)
 	}
-	for status := range def.Responses {
+	for status, spec := range def.Responses {
 		if status < 100 || status > 599 {
 			return Compiled{}, fmt.Errorf("%s %s (%s -> %s): invalid response status %d", def.Method, def.UserRoute, def.InputType, def.OutputType, status)
+		}
+		if spec.Kind == ResponseCustom && statusAllowsResponseBody(status) {
+			if spec.ModelType == nil {
+				return Compiled{}, fmt.Errorf("%s %s: custom response %d requires a non-nil model", def.Method, def.UserRoute, status)
+			}
+			mediaType, _, err := mime.ParseMediaType(strings.TrimSpace(spec.ContentType))
+			if err != nil || mediaType == "" {
+				return Compiled{}, fmt.Errorf("%s %s: custom response %d has invalid content type %q", def.Method, def.UserRoute, status, spec.ContentType)
+			}
 		}
 	}
 	pattern, err := route.Parse(def.FullRoute)
@@ -62,20 +77,38 @@ func Compile(def *Definition, opts Options) (Compiled, error) {
 	if def.Feature != "" && opts.Authenticator == nil {
 		return Compiled{}, fmt.Errorf("%s %s (%s): protected operation requires Config.Authenticator", def.Method, def.UserRoute, def.InputType)
 	}
-	oasOperation, err := compileOAS(def, bindPlan, pattern, opts.Registry)
+	if opts.FailureFormatter == nil {
+		opts.FailureFormatter = core.ProblemDetailsFormatter{}
+	}
+	if opts.FailureContentType == "" || opts.FailureModelType == nil {
+		opts.FailureContentType, opts.FailureModelType, err = internalfailure.Describe(opts.FailureFormatter)
+		if err != nil {
+			return Compiled{}, err
+		}
+	}
+	oasOperation, err := compileOAS(def, bindPlan, pattern, opts.Registry, opts.FailureContentType, opts.FailureModelType)
 	if err != nil {
 		return Compiled{}, fmt.Errorf("%s %s (%s -> %s): %w", def.Method, def.UserRoute, def.InputType, def.OutputType, err)
 	}
 
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
+		report := func(err error) {
+			if opts.ErrorHandler != nil {
+				opts.ErrorHandler(ctx, err)
+			}
+		}
+		writeFailure := func(item core.Failure) {
+			internalfailure.WriteResolved(w, opts.FailureFormatter, opts.FailureContentType, item, report)
+		}
+
 		if def.Feature != "" {
-			next, failure := internalsecurity.AuthenticateAndAuthorize(ctx, r.Header.Get("Authorization"), def.Feature, def.Permission, opts.Authenticator, opts.Authorizer)
-			if failure != nil {
-				if failure.Challenge != "" {
-					w.Header().Set("WWW-Authenticate", failure.Challenge)
+			next, securityFailure := internalsecurity.AuthenticateAndAuthorize(ctx, r.Header.Get("Authorization"), def.Feature, def.Permission, opts.Authenticator, opts.Authorizer)
+			if securityFailure != nil {
+				if securityFailure.Challenge != "" {
+					w.Header().Set("WWW-Authenticate", securityFailure.Challenge)
 				}
-				writeProblem(w, failure.Status, failure.Code, failure.Detail)
+				writeFailure(core.Failure{Status: securityFailure.Status, Code: securityFailure.Code, Detail: securityFailure.Detail})
 				return
 			}
 			ctx = next
@@ -84,11 +117,11 @@ func Compile(def *Definition, opts Options) (Compiled, error) {
 
 		input, requestErr, fieldErrors := bindPlan.Bind(r)
 		if requestErr != nil {
-			writeProblem(w, requestErr.Status, requestErr.Code, requestErr.Detail)
+			writeFailure(core.Failure{Status: requestErr.Status, Code: requestErr.Code, Detail: requestErr.Detail})
 			return
 		}
 		if len(fieldErrors) > 0 {
-			writeValidationProblem(w, fieldErrors)
+			writeFailure(validationFailure(fieldErrors))
 			return
 		}
 
@@ -98,26 +131,22 @@ func Compile(def *Definition, opts Options) (Compiled, error) {
 				fieldErrors = append(fieldErrors, opts.Validator.Validate(ctx, input.Interface())...)
 			}
 			if len(fieldErrors) > 0 {
-				writeValidationProblem(w, fieldErrors)
+				writeFailure(validationFailure(fieldErrors))
 				return
 			}
 		}
 
 		result := def.Invoke(ctx, input)
 		if result == nil {
-			writeProblem(w, http.StatusInternalServerError, "NIL_RESULT", "The operation returned no result")
+			writeFailure(core.Failure{Status: http.StatusInternalServerError, Code: "NIL_RESULT", Detail: "The operation returned no result"})
 			return
 		}
-		result.WriteHTTP(w, func(err error) {
-			if opts.ErrorHandler != nil {
-				opts.ErrorHandler(ctx, err)
-			}
-		})
+		result.WriteHTTPWithFailureFormatter(w, report, opts.FailureFormatter, opts.FailureContentType)
 	})
 	return Compiled{Pattern: pattern, Handler: handler, Operation: oasOperation, Protected: def.Feature != ""}, nil
 }
 
-func compileOAS(def *Definition, plan *binding.Plan, pattern route.Pattern, registry *schema.Registry) (*oas31.Operation, error) {
+func compileOAS(def *Definition, plan *binding.Plan, pattern route.Pattern, registry *schema.Registry, failureContentType string, failureModelType reflect.Type) (*oas31.Operation, error) {
 	if registry == nil {
 		return nil, fmt.Errorf("schema registry is nil")
 	}
@@ -132,22 +161,22 @@ func compileOAS(def *Definition, plan *binding.Plan, pattern route.Pattern, regi
 		if status >= 200 && status < 300 {
 			success = true
 		}
-		description := spec.Description
-		if description == "" {
-			description = http.StatusText(status)
-		}
-		if description == "" {
-			description = "Response"
-		}
+		description := responseDescription(status, spec.Description)
 		response := oas31.Response{Description: description}
-		if spec.Kind == ResponseProblem {
-			response = problemResponse(description)
-		} else if statusAllowsResponseBody(status) {
-			ref, err := registry.Ref(def.OutputType)
+		var err error
+		if statusAllowsResponseBody(status) {
+			switch spec.Kind {
+			case ResponseProblem:
+				response, err = documentedResponse(registry, description, failureContentType, failureModelType)
+			case ResponseCustom:
+				mediaType, _, _ := mime.ParseMediaType(strings.TrimSpace(spec.ContentType))
+				response, err = documentedResponse(registry, description, mediaType, spec.ModelType)
+			default:
+				response, err = documentedResponse(registry, description, "application/json", def.OutputType)
+			}
 			if err != nil {
 				return nil, err
 			}
-			response.Content = map[string]oas31.MediaType{"application/json": {Schema: ref}}
 		}
 		responses[strconv.Itoa(status)] = response
 	}
@@ -155,16 +184,28 @@ func compileOAS(def *Definition, plan *binding.Plan, pattern route.Pattern, regi
 		return nil, fmt.Errorf("at least one successful response must be declared")
 	}
 
-	addProblemResponse(responses, http.StatusBadRequest)
+	if err := addFailureResponse(responses, registry, http.StatusBadRequest, failureContentType, failureModelType); err != nil {
+		return nil, err
+	}
 	if body != nil {
-		addProblemResponse(responses, http.StatusRequestEntityTooLarge)
-		addProblemResponse(responses, http.StatusUnsupportedMediaType)
+		if err := addFailureResponse(responses, registry, http.StatusRequestEntityTooLarge, failureContentType, failureModelType); err != nil {
+			return nil, err
+		}
+		if err := addFailureResponse(responses, registry, http.StatusUnsupportedMediaType, failureContentType, failureModelType); err != nil {
+			return nil, err
+		}
 	}
 	if def.Feature != "" {
-		addProblemResponse(responses, http.StatusUnauthorized)
-		addProblemResponse(responses, http.StatusForbidden)
+		if err := addFailureResponse(responses, registry, http.StatusUnauthorized, failureContentType, failureModelType); err != nil {
+			return nil, err
+		}
+		if err := addFailureResponse(responses, registry, http.StatusForbidden, failureContentType, failureModelType); err != nil {
+			return nil, err
+		}
 	}
-	addProblemResponse(responses, http.StatusInternalServerError)
+	if err := addFailureResponse(responses, registry, http.StatusInternalServerError, failureContentType, failureModelType); err != nil {
+		return nil, err
+	}
 
 	operation := &oas31.Operation{
 		OperationID: def.OperationID,
@@ -210,28 +251,42 @@ func compileOAS(def *Definition, plan *binding.Plan, pattern route.Pattern, regi
 	return operation, nil
 }
 
+func responseDescription(status int, description string) string {
+	if description != "" {
+		return description
+	}
+	if text := http.StatusText(status); text != "" {
+		return text
+	}
+	return "Response"
+}
+
+func documentedResponse(registry *schema.Registry, description, contentType string, modelType reflect.Type) (oas31.Response, error) {
+	ref, err := registry.Ref(modelType)
+	if err != nil {
+		return oas31.Response{}, err
+	}
+	return oas31.Response{Description: description, Content: map[string]oas31.MediaType{contentType: {Schema: ref}}}, nil
+}
+
 func statusAllowsResponseBody(status int) bool {
 	return status >= 200 && status != http.StatusNoContent && status != http.StatusNotModified
 }
 
-func problemResponse(description string) oas31.Response {
-	ref := oas31.Schema{"$ref": "#/components/schemas/ProblemDetails"}
-	return oas31.Response{Description: description, Content: map[string]oas31.MediaType{"application/problem+json": {Schema: &ref}}}
-}
-
-func addProblemResponse(responses map[string]oas31.Response, status int) {
+func addFailureResponse(responses map[string]oas31.Response, registry *schema.Registry, status int, contentType string, modelType reflect.Type) error {
 	key := strconv.Itoa(status)
 	if _, exists := responses[key]; exists {
-		return
+		return nil
 	}
-	description := http.StatusText(status)
-	if description == "" {
-		description = "Error"
+	response, err := documentedResponse(registry, responseDescription(status, ""), contentType, modelType)
+	if err != nil {
+		return err
 	}
-	responses[key] = problemResponse(description)
+	responses[key] = response
+	return nil
 }
 
-func writeValidationProblem(w http.ResponseWriter, errors []core.FieldError) {
+func validationFailure(errors []core.FieldError) core.Failure {
 	grouped := map[string][]string{}
 	for _, field := range errors {
 		key := strings.Trim(strings.TrimSpace(field.Location)+"."+strings.TrimSpace(field.Field), ".")
@@ -240,26 +295,11 @@ func writeValidationProblem(w http.ResponseWriter, errors []core.FieldError) {
 		}
 		grouped[key] = append(grouped[key], field.Messages...)
 	}
-	writeProblemObject(w, core.ProblemDetails{Title: "Bad Request", Status: http.StatusBadRequest, Code: "VALIDATION_FAILED", Detail: "The request is invalid", Errors: grouped})
-}
-
-func writeProblem(w http.ResponseWriter, status int, code, detail string) {
-	title := http.StatusText(status)
-	if title == "" {
-		title = "Error"
+	return core.Failure{
+		Title:  "Bad Request",
+		Status: http.StatusBadRequest,
+		Code:   "VALIDATION_FAILED",
+		Detail: "The request is invalid",
+		Errors: grouped,
 	}
-	writeProblemObject(w, core.ProblemDetails{Title: title, Status: status, Code: code, Detail: detail})
-}
-
-func writeProblemObject(w http.ResponseWriter, p core.ProblemDetails) {
-	payload, err := json.Marshal(p)
-	if err != nil {
-		payload = []byte(`{"title":"Internal Server Error","status":500,"code":"PROBLEM_SERIALIZATION_FAILED"}`)
-		p.Status = http.StatusInternalServerError
-	}
-	w.Header().Set("Content-Type", "application/problem+json")
-	w.Header().Set("Cache-Control", "no-store")
-	w.Header().Set("X-Content-Type-Options", "nosniff")
-	w.WriteHeader(p.Status)
-	_, _ = w.Write(payload)
 }

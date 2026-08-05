@@ -4,7 +4,7 @@
 
 `oashttp` is a zero-third-party-runtime-dependency Go library for typed `net/http` JSON endpoints, compiled request binding and validation, RFC 9457-style Problem Details, authorization hooks, panic recovery, and OpenAPI 3.1 generation.
 
-**Stable release:** `v1.0.0`
+**Stable release:** `v1.0.1`
 
 **Module:** `github.com/quang020102/go-osm`
 
@@ -13,7 +13,7 @@
 ## Install
 
 ```bash
-go get github.com/quang020102/go-osm@v1.0.0
+go get github.com/quang020102/go-osm@v1.0.1
 ```
 
 The Go module has no third-party runtime dependencies. Swagger UI assets are loaded by the browser from a pinned CDN by default and can be replaced with an application-controlled mirror.
@@ -77,7 +77,7 @@ func main() {
 }
 ```
 
-Open `/openapi.json` for the generated document and `/swagger` for Swagger UI. The default OpenAPI server URL is relative (`/`), so documentation uses the same origin and reverse-proxy entry point as the page.
+Open `/openapi.json` for the generated document and `/swagger` for Swagger UI. When `Config.Servers` is empty, the generated document omits `servers`; OpenAPI clients still resolve requests against the current origin. Configure `Servers` only when an explicit environment URL should appear.
 
 ## Binding
 
@@ -115,9 +115,54 @@ Application-specific validation can be added with `Config.Validator`.
 
 ## Results and errors
 
-Success helpers include `OK`, `Created`, `Accepted`, `NoContent`, and `JSON(status, value)`. JSON is serialized before response headers are committed, so an unsupported output value returns a `500 RESPONSE_SERIALIZATION_FAILED` Problem Details response instead of a false `2xx`.
+Success helpers include `OK`, `Created`, `Accepted`, `NoContent`, and `JSON(status, value)`. JSON is serialized before response headers are committed, so an unsupported output value returns a formatted `500 RESPONSE_SERIALIZATION_FAILED` response instead of a false `2xx`.
 
-Framework errors use `application/problem+json`, `Cache-Control: no-store`, and `X-Content-Type-Options: nosniff`. Generated OpenAPI operations automatically document applicable `400`, `401`, `403`, `413`, `415`, and `500` responses.
+By default, framework failures use RFC 9457-style `ProblemDetails` with `application/problem+json`, `Cache-Control: no-store`, and `X-Content-Type-Options: nosniff`. `ProducesProblem(status)` documents the configured global failure schema.
+
+Applications can replace the public failure envelope while keeping framework binding, validation, authentication, panic, and serialization failures consistent:
+
+```go
+type APIError struct {
+    Success bool `json:"success"`
+    Error struct {
+        Code    string              `json:"code"`
+        Message string              `json:"message"`
+        Fields  map[string][]string `json:"fields,omitempty"`
+    } `json:"error"`
+}
+
+type APIErrorFormatter struct{}
+
+func (APIErrorFormatter) ContentType() string { return "application/json" }
+func (APIErrorFormatter) Model() any          { return APIError{} }
+func (APIErrorFormatter) Format(f oashttp.Failure) any {
+    value := APIError{}
+    value.Error.Code = f.Code
+    value.Error.Message = f.Detail
+    value.Error.Fields = f.Errors
+    return value
+}
+
+app := oashttp.New(oashttp.Config{
+    Info:             oashttp.Info{Title: "Users API", Version: "1.0.0"},
+    FailureFormatter: APIErrorFormatter{},
+})
+```
+
+Handlers can return the global format with `Fail`, `BadRequest`, `NotFound`, and the other existing failure helpers. For an endpoint-specific JSON body, pair `ErrorJSON` with `ProducesResponse`:
+
+```go
+return oashttp.ErrorJSON[UserDTO](http.StatusConflict, APIError{/* ... */})
+
+operation.ProducesResponse(
+    http.StatusConflict,
+    "User already exists",
+    "application/json",
+    APIError{},
+)
+```
+
+Generated OpenAPI operations automatically document applicable `400`, `401`, `403`, `413`, `415`, and `500` responses using the configured failure model.
 
 ## Panic recovery
 

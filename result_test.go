@@ -107,3 +107,17 @@ func TestResultReportsWriteFailure(t *testing.T) {
 		t.Fatalf("status=%d reported=%v", writer.status, reported)
 	}
 }
+
+func TestErrorJSONWritesCallerDefinedBody(t *testing.T) {
+	type apiError struct {
+		Code string `json:"code"`
+	}
+	recorder := httptest.NewRecorder()
+	ErrorJSON[struct{}](http.StatusConflict, apiError{Code: "CONFLICT"}).write(recorder)
+	if recorder.Code != http.StatusConflict || recorder.Header().Get("Content-Type") != "application/json" {
+		t.Fatalf("status=%d headers=%v", recorder.Code, recorder.Header())
+	}
+	if recorder.Header().Get("Cache-Control") != "no-store" || strings.TrimSpace(recorder.Body.String()) != `{"code":"CONFLICT"}` {
+		t.Fatalf("headers=%v body=%s", recorder.Header(), recorder.Body.String())
+	}
+}

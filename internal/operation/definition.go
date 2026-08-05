@@ -12,11 +12,14 @@ type ResponseKind uint8
 const (
 	ResponseJSON ResponseKind = iota
 	ResponseProblem
+	ResponseCustom
 )
 
 type ResponseSpec struct {
 	Kind        ResponseKind
 	Description string
+	ContentType string
+	ModelType   reflect.Type
 }
 type Definition struct {
 	Method      string

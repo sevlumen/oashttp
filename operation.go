@@ -2,6 +2,7 @@ package oashttp
 
 import (
 	"net/http"
+	"reflect"
 
 	internaloperation "github.com/quang020102/go-osm/internal/operation"
 )
@@ -38,9 +39,24 @@ func (b *OperationBuilder[T]) ProducesJSON(status int, description string) *Oper
 		d.Responses[status] = internaloperation.ResponseSpec{Kind: internaloperation.ResponseJSON, Description: description}
 	})
 }
+
+// ProducesProblem documents a failure using Config.FailureFormatter.
 func (b *OperationBuilder[T]) ProducesProblem(status int) *OperationBuilder[T] {
 	return b.mutate(func(d *internaloperation.Definition) {
 		d.Responses[status] = internaloperation.ResponseSpec{Kind: internaloperation.ResponseProblem, Description: http.StatusText(status)}
+	})
+}
+
+// ProducesResponse documents a caller-defined response body and media type.
+// Pass a representative zero value such as APIError{} as model.
+func (b *OperationBuilder[T]) ProducesResponse(status int, description, contentType string, model any) *OperationBuilder[T] {
+	return b.mutate(func(d *internaloperation.Definition) {
+		d.Responses[status] = internaloperation.ResponseSpec{
+			Kind:        internaloperation.ResponseCustom,
+			Description: description,
+			ContentType: contentType,
+			ModelType:   reflect.TypeOf(model),
+		}
 	})
 }
 func (b *OperationBuilder[T]) RequireFeatureAndPermission(feature, permission string) *OperationBuilder[T] {

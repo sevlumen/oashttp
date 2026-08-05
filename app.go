@@ -4,13 +4,12 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"reflect"
 	"strings"
 	"sync"
 
 	"github.com/quang020102/go-osm/internal/binding"
-	"github.com/quang020102/go-osm/internal/core"
 	internaldocs "github.com/quang020102/go-osm/internal/docs"
+	internalfailure "github.com/quang020102/go-osm/internal/failure"
 	"github.com/quang020102/go-osm/internal/oas31"
 	internaloperation "github.com/quang020102/go-osm/internal/operation"
 	"github.com/quang020102/go-osm/internal/schema"
@@ -119,11 +118,13 @@ func (a *App) build() {
 		document.Servers = append(document.Servers, oas31.Server{URL: server.URL, Description: server.Description})
 	}
 
-	registry := schema.NewRegistry()
-	if _, err := registry.Ref(reflect.TypeOf(core.ProblemDetails{})); err != nil {
-		a.builtErr = err
+	failureContentType, failureModelType, err := internalfailure.Describe(cfg.FailureFormatter)
+	if err != nil {
+		a.builtErr = fmt.Errorf("oashttp: invalid FailureFormatter: %w", err)
 		return
 	}
+
+	registry := schema.NewRegistry()
 	mux := http.NewServeMux()
 	registered := map[string]string{}
 	operationIDs := map[string]string{}
@@ -138,12 +139,15 @@ func (a *App) build() {
 			operationIDs[def.OperationID] = def.Method + " " + def.UserRoute
 		}
 		compiled, err := internaloperation.Compile(def, internaloperation.Options{
-			Binding:       binding.Options{JSONBodyLimit: cfg.JSONBodyLimit, DisallowUnknownJSONFields: cfg.DisallowUnknownJSONFields},
-			Registry:      registry,
-			Validator:     cfg.Validator,
-			Authenticator: cfg.Authenticator,
-			Authorizer:    cfg.Authorizer,
-			ErrorHandler:  cfg.ErrorHandler,
+			Binding:            binding.Options{JSONBodyLimit: cfg.JSONBodyLimit, DisallowUnknownJSONFields: cfg.DisallowUnknownJSONFields},
+			Registry:           registry,
+			Validator:          cfg.Validator,
+			Authenticator:      cfg.Authenticator,
+			Authorizer:         cfg.Authorizer,
+			ErrorHandler:       cfg.ErrorHandler,
+			FailureFormatter:   cfg.FailureFormatter,
+			FailureContentType: failureContentType,
+			FailureModelType:   failureModelType,
 		})
 		if err != nil {
 			a.builtErr = err
@@ -223,7 +227,7 @@ func (a *App) build() {
 		handler = middlewares[index](handler)
 	}
 	if !cfg.DisablePanicRecovery {
-		handler = recoverPanics(handler, cfg.ErrorHandler)
+		handler = recoverPanics(handler, cfg.ErrorHandler, cfg.FailureFormatter, failureContentType)
 	}
 	a.builtHandler = handler
 }
