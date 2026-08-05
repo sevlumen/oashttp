@@ -4,7 +4,7 @@
 
 `oashttp` is a zero-third-party-runtime-dependency Go library for typed `net/http` JSON endpoints, compiled request binding and validation, RFC 9457-style Problem Details, authorization hooks, panic recovery, and OpenAPI 3.1 generation.
 
-**Stable API version:** `1.0.0`
+**Stable release:** `v1.0.0`
 
 **Module:** `github.com/quang020102/go-osm`
 
@@ -13,7 +13,7 @@
 ## Install
 
 ```bash
-go get github.com/quang020102/go-osm@latest
+go get github.com/quang020102/go-osm@v1.0.0
 ```
 
 The Go module has no third-party runtime dependencies. Swagger UI assets are loaded by the browser from a pinned CDN by default and can be replaced with an application-controlled mirror.
