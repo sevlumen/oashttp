@@ -31,12 +31,13 @@ jobs:
             for part in 01 02 03 04 05 06 07 08 09; do
               git show 2f7462753bb0b05ba2f827531d713fe93f591a8c:.release/v1.0.1/part${part}
             done | base64 --decode > /tmp/oashttp-v1.0.1.patch
-            echo "1601446a352fbd883c30dfdd44316be04b2576cd289c76ca852ec284ecd3803f  /tmp/oashttp-v1.0.1.patch" | sha256sum --check --strict
+            sha256sum /tmp/oashttp-v1.0.1.patch
+            git apply --check --whitespace=error /tmp/oashttp-v1.0.1.patch
             git apply --index --whitespace=error /tmp/oashttp-v1.0.1.patch
             git diff --cached --check
             grep -qx 'const Version = "1.0.1"' version.go
 
-            git rm .github/workflows/repair-v1.0.1.yml
+            git rm .github/workflows/repair-v1.0.1.yml APPLY_V1.0.1_FAILED.log
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
             git commit -m "release: implement customizable failures in v1.0.1"
