@@ -1,0 +1,99 @@
+name: Release v1.0.1
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/publish-v1.0.1.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    name: Verify and publish v1.0.1
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@v7
+        with:
+          go-version: "1.26.x"
+          cache: false
+
+      - name: Restore verified release patch
+        shell: bash
+        run: |
+          cat \
+            .release/v1.0.1/part01 \
+            .release/v1.0.1/part02 \
+            .release/v1.0.1/part03 \
+            .release/v1.0.1/part04 \
+            .release/v1.0.1/part05 \
+            .release/v1.0.1/part06 \
+            .release/v1.0.1/part07 \
+            .release/v1.0.1/part08 \
+            .release/v1.0.1/part09 \
+            | base64 --decode > /tmp/go-osm-v1.0.1.patch
+          echo "1601446a352fbd883c30dfdd44316be04b2576cd289c76ca852ec284ecd3803f  /tmp/go-osm-v1.0.1.patch" | sha256sum --check --strict
+          git apply --index --whitespace=error /tmp/go-osm-v1.0.1.patch
+          git diff --cached --check
+
+      - name: Verify formatting
+        shell: bash
+        run: test -z "$(gofmt -l .)"
+
+      - name: Verify module files
+        shell: bash
+        run: |
+          go mod tidy
+          git diff --exit-code -- go.mod go.sum
+
+      - run: go vet ./...
+      - run: go test ./... -shuffle=on -count=3
+      - run: go test -race ./...
+
+      - name: Enforce coverage floor
+        shell: bash
+        run: |
+          go test ./... -coverprofile=coverage.out
+          coverage="$(go tool cover -func=coverage.out | awk '/^total:/ {gsub(/%/, "", $3); print $3}')"
+          echo "total coverage: ${coverage}%"
+          awk -v coverage="$coverage" 'BEGIN { if ((coverage + 0) < 70) exit 1 }'
+
+      - name: Verify OpenAPI golden file
+        shell: bash
+        run: |
+          UPDATE_GOLDEN=1 go test ./examples/users-api -run TestUsersAPIEndToEnd/openapi_golden -count=1
+          git diff --exit-code -- testdata/users.openapi.golden.json
+
+      - run: go test ./internal/route -run=^$ -fuzz=FuzzRouteParserNeverPanics -fuzztime=15s
+      - run: go test ./internal/binding -run=^$ -fuzz=FuzzCompiledBinderNeverPanics -fuzztime=15s
+      - run: go test ./... -bench=. -run=^$ -benchtime=100ms
+
+      - name: Scan known Go vulnerabilities
+        shell: bash
+        run: |
+          go install golang.org/x/vuln/cmd/govulncheck@v1.6.0
+          govulncheck ./...
+
+      - name: Commit and tag release
+        shell: bash
+        run: |
+          package_version="$(sed -n 's/^const Version = "\([^"]*\)"/\1/p' version.go)"
+          test "${package_version}" = "1.0.1"
+          if git ls-remote --exit-code --tags origin refs/tags/v1.0.1 >/dev/null 2>&1; then
+            echo "v1.0.1 already exists"
+            exit 1
+          fi
+
+          git rm -r .release/v1.0.1
+          git rm .github/workflows/publish-v1.0.1.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "release: add customizable failures in v1.0.1"
+          git tag -a v1.0.1 -m "Release v1.0.1"
+          git push origin HEAD:main
+          git push origin refs/tags/v1.0.1
