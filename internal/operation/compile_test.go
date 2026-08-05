@@ -7,9 +7,9 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/oashttp/oashttp/internal/binding"
-	"github.com/oashttp/oashttp/internal/core"
-	"github.com/oashttp/oashttp/internal/schema"
+	"github.com/quang020102/go-osm/internal/binding"
+	"github.com/quang020102/go-osm/internal/core"
+	"github.com/quang020102/go-osm/internal/schema"
 )
 
 type compileInput struct {

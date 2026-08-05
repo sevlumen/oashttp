@@ -3,7 +3,7 @@ package security
 import (
 	"context"
 	"errors"
-	"github.com/oashttp/oashttp/internal/core"
+	"github.com/quang020102/go-osm/internal/core"
 	"testing"
 )
 

@@ -4,7 +4,7 @@ import (
 	"context"
 	"reflect"
 
-	"github.com/oashttp/oashttp/internal/core"
+	"github.com/quang020102/go-osm/internal/core"
 )
 
 type ResponseKind uint8

@@ -1,7 +1,7 @@
 package binding
 
 import (
-	"github.com/oashttp/oashttp/internal/route"
+	"github.com/quang020102/go-osm/internal/route"
 	"net/http"
 	"net/http/httptest"
 	"reflect"

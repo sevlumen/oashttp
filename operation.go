@@ -3,7 +3,7 @@ package oashttp
 import (
 	"net/http"
 
-	internaloperation "github.com/oashttp/oashttp/internal/operation"
+	internaloperation "github.com/quang020102/go-osm/internal/operation"
 )
 
 type OperationBuilder[T any] struct {

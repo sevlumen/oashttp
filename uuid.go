@@ -1,6 +1,6 @@
 package oashttp
 
-import "github.com/oashttp/oashttp/internal/core"
+import "github.com/quang020102/go-osm/internal/core"
 
 type UUID string
 

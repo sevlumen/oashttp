@@ -5,7 +5,7 @@ import (
 	"errors"
 	"strings"
 
-	"github.com/oashttp/oashttp/internal/core"
+	"github.com/quang020102/go-osm/internal/core"
 )
 
 var ErrUnauthorized = errors.New("unauthorized")

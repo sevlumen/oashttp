@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"reflect"
 
-	"github.com/oashttp/oashttp/internal/core"
-	"github.com/oashttp/oashttp/internal/route"
+	"github.com/quang020102/go-osm/internal/core"
+	"github.com/quang020102/go-osm/internal/route"
 )
 
 func (p *Plan) Bind(r *http.Request) (reflect.Value, []core.FieldError) {

@@ -8,13 +8,13 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/oashttp/oashttp/internal/binding"
-	"github.com/oashttp/oashttp/internal/core"
-	"github.com/oashttp/oashttp/internal/oas31"
-	"github.com/oashttp/oashttp/internal/route"
-	"github.com/oashttp/oashttp/internal/schema"
-	internalsecurity "github.com/oashttp/oashttp/internal/security"
-	"github.com/oashttp/oashttp/internal/validation"
+	"github.com/quang020102/go-osm/internal/binding"
+	"github.com/quang020102/go-osm/internal/core"
+	"github.com/quang020102/go-osm/internal/oas31"
+	"github.com/quang020102/go-osm/internal/route"
+	"github.com/quang020102/go-osm/internal/schema"
+	internalsecurity "github.com/quang020102/go-osm/internal/security"
+	"github.com/quang020102/go-osm/internal/validation"
 )
 
 type Options struct {

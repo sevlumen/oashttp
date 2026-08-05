@@ -6,7 +6,7 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/oashttp/oashttp"
+	"github.com/quang020102/go-osm"
 )
 
 type UpdateUserInput struct {

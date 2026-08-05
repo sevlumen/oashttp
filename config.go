@@ -4,7 +4,7 @@ import (
 	"context"
 	"log"
 
-	"github.com/oashttp/oashttp/internal/core"
+	"github.com/quang020102/go-osm/internal/core"
 )
 
 type Server = core.Server
