@@ -2,12 +2,12 @@
 
 `oashttp` is a zero-third-party-dependency Go library for typed `net/http` endpoints, compiled request binding and validation, RFC 9457-style Problem Details, and OpenAPI 3.1 JSON generation.
 
-> The module path is `github.com/oashttp/oashttp` and the minimum supported Go version is 1.22.
+> The module path is `github.com/quang020102/go-osm` and the minimum supported Go version is 1.22.
 
 ## Install
 
 ```bash
-go get github.com/oashttp/oashttp
+go get github.com/quang020102/go-osm
 ```
 
 The core module has zero third-party Go dependencies.
@@ -23,7 +23,7 @@ import (
     "context"
     "net/http"
 
-    "github.com/oashttp/oashttp"
+    oashttp "github.com/quang020102/go-osm"
 )
 
 type GetUserInput struct {
@@ -133,6 +133,6 @@ go test -race ./...
 go test ./... -bench=. -run=^$ -benchtime=100ms
 ```
 
-`go list -m all` must print only `github.com/oashttp/oashttp`.
+`go list -m all` must print only `github.com/quang020102/go-osm`.
 
 See `examples/users-api` for authentication, validation, Problem Details, golden OpenAPI, and Swagger UI coverage.
