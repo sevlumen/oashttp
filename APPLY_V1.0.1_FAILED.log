@@ -1,2 +1,2 @@
-/tmp/oashttp-v1.0.1.patch: FAILED
-sha256sum: WARNING: 1 computed checksum did NOT match
+0e9d7decba4f36d8a96f8ac043954633f2a981f5a3d2dc88282a5092220765e6  /tmp/oashttp-v1.0.1.patch
+error: corrupt patch at /tmp/oashttp-v1.0.1.patch:1382
