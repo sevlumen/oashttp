@@ -13,7 +13,7 @@
 ## Install
 
 ```bash
-go get github.com/sevlumen/oashttp/v2@v1.0.1
+go get github.com/sevlumen/oashttp/v2@v2.0.0
 ```
 
 ## Migrating from v1
