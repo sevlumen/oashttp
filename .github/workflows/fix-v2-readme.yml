@@ -1,0 +1,36 @@
+name: Fix v2 installation docs
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/fix-v2-readme.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Correct install command
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -q 'go get github.com/sevlumen/oashttp/v2@v1.0.1' README.md
+          sed -i 's#go get github.com/sevlumen/oashttp/v2@v1.0.1#go get github.com/sevlumen/oashttp/v2@v2.0.0#' README.md
+          if git grep -n 'github.com/sevlumen/oashttp/v2@v1.0.1'; then
+            echo 'stale v1 tag remains on the v2 module path'
+            exit 1
+          fi
+          git rm .github/workflows/fix-v2-readme.yml
+          git add README.md
+          git diff --cached --check
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'docs: correct v2 installation command'
+          git push origin HEAD:main
