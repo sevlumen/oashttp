@@ -1,0 +1,4 @@
+.github/workflows/fix-v2-readme.yml:30:            grep -q 'go get github.com/sevlumen/oashttp/v2@v1.0.1' README.md
+.github/workflows/fix-v2-readme.yml:31:            sed -i 's#go get github.com/sevlumen/oashttp/v2@v1.0.1#go get github.com/sevlumen/oashttp/v2@v2.0.0#' README.md
+.github/workflows/fix-v2-readme.yml:32:            if git grep -n 'github.com/sevlumen/oashttp/v2@v1.0.1'; then
+stale v1 tag remains on the v2 module path
