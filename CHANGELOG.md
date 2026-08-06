@@ -2,6 +2,17 @@
 
 All notable changes to this project are documented here. The project follows Semantic Versioning.
 
+## [2.0.0] - 2026-08-06
+
+### Changed
+
+- Moved the canonical Go module to `github.com/sevlumen/oashttp/v2` after the repository transfer and rename.
+- Updated internal imports, examples, badges, installation instructions, and repository links to the canonical location.
+
+### Migration
+
+Version 2 is a breaking module-path migration. Replace imports from `github.com/quang020102/go-osm` with `github.com/sevlumen/oashttp/v2`. Version `v1.0.1` remains available at the legacy module path.
+
 ## [1.0.1] - 2026-08-05
 
 ### Added

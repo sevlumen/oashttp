@@ -9,9 +9,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/quang020102/go-osm/internal/binding"
-	"github.com/quang020102/go-osm/internal/core"
-	"github.com/quang020102/go-osm/internal/schema"
+	"github.com/sevlumen/oashttp/v2/internal/binding"
+	"github.com/sevlumen/oashttp/v2/internal/core"
+	"github.com/sevlumen/oashttp/v2/internal/schema"
 )
 
 type compileInput struct {

@@ -9,14 +9,14 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/quang020102/go-osm/internal/binding"
-	"github.com/quang020102/go-osm/internal/core"
-	internalfailure "github.com/quang020102/go-osm/internal/failure"
-	"github.com/quang020102/go-osm/internal/oas31"
-	"github.com/quang020102/go-osm/internal/route"
-	"github.com/quang020102/go-osm/internal/schema"
-	internalsecurity "github.com/quang020102/go-osm/internal/security"
-	"github.com/quang020102/go-osm/internal/validation"
+	"github.com/sevlumen/oashttp/v2/internal/binding"
+	"github.com/sevlumen/oashttp/v2/internal/core"
+	internalfailure "github.com/sevlumen/oashttp/v2/internal/failure"
+	"github.com/sevlumen/oashttp/v2/internal/oas31"
+	"github.com/sevlumen/oashttp/v2/internal/route"
+	"github.com/sevlumen/oashttp/v2/internal/schema"
+	internalsecurity "github.com/sevlumen/oashttp/v2/internal/security"
+	"github.com/sevlumen/oashttp/v2/internal/validation"
 )
 
 type Options struct {

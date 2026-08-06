@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	oashttp "github.com/quang020102/go-osm"
+	oashttp "github.com/sevlumen/oashttp/v2"
 )
 
 type benchmarkGetInput struct {

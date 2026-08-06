@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/quang020102/go-osm/internal/core"
+	"github.com/sevlumen/oashttp/v2/internal/core"
 )
 
 type ruleKind uint8
@@ -94,7 +94,7 @@ func compileStruct(t reflect.Type, prefix []int, out *[]fieldPlan, stack map[ref
 		for nested.Kind() == reflect.Pointer {
 			nested = nested.Elem()
 		}
-		if nested.Kind() == reflect.Struct && nested.PkgPath() != "time" && !(nested.PkgPath() == "github.com/quang020102/go-osm" && nested.Name() == "UUID") && !nested.Implements(textUnmarshalerType) && !reflect.PointerTo(nested).Implements(textUnmarshalerType) {
+		if nested.Kind() == reflect.Struct && nested.PkgPath() != "time" && !(nested.PkgPath() == "github.com/sevlumen/oashttp/v2" && nested.Name() == "UUID") && !nested.Implements(textUnmarshalerType) && !reflect.PointerTo(nested).Implements(textUnmarshalerType) {
 			if err := compileStruct(nested, idx, out, nextStack); err != nil {
 				return err
 			}

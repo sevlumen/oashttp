@@ -1,3 +1,3 @@
-module github.com/quang020102/go-osm
+module github.com/sevlumen/oashttp/v2
 
 go 1.22

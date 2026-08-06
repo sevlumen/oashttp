@@ -5,7 +5,7 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/quang020102/go-osm/internal/route"
+	"github.com/sevlumen/oashttp/v2/internal/route"
 )
 
 type Options struct {

@@ -2,7 +2,7 @@ package security
 
 import (
 	"context"
-	"github.com/quang020102/go-osm/internal/core"
+	"github.com/sevlumen/oashttp/v2/internal/core"
 )
 
 type principalKey struct{}

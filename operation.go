@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"reflect"
 
-	internaloperation "github.com/quang020102/go-osm/internal/operation"
+	internaloperation "github.com/sevlumen/oashttp/v2/internal/operation"
 )
 
 type OperationBuilder[T any] struct {

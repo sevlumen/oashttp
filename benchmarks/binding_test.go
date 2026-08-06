@@ -7,10 +7,10 @@ import (
 	"strings"
 	"testing"
 
-	oashttp "github.com/quang020102/go-osm"
-	"github.com/quang020102/go-osm/internal/binding"
-	"github.com/quang020102/go-osm/internal/route"
-	"github.com/quang020102/go-osm/internal/validation"
+	oashttp "github.com/sevlumen/oashttp/v2"
+	"github.com/sevlumen/oashttp/v2/internal/binding"
+	"github.com/sevlumen/oashttp/v2/internal/route"
+	"github.com/sevlumen/oashttp/v2/internal/validation"
 )
 
 type benchmarkBody struct {

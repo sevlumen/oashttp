@@ -3,7 +3,7 @@ package validation
 import (
 	"reflect"
 
-	"github.com/quang020102/go-osm/internal/core"
+	"github.com/sevlumen/oashttp/v2/internal/core"
 )
 
 func (p *Plan) validateReflect(v reflect.Value) []core.FieldError {

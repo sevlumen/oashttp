@@ -7,12 +7,12 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/quang020102/go-osm/internal/binding"
-	internaldocs "github.com/quang020102/go-osm/internal/docs"
-	internalfailure "github.com/quang020102/go-osm/internal/failure"
-	"github.com/quang020102/go-osm/internal/oas31"
-	internaloperation "github.com/quang020102/go-osm/internal/operation"
-	"github.com/quang020102/go-osm/internal/schema"
+	"github.com/sevlumen/oashttp/v2/internal/binding"
+	internaldocs "github.com/sevlumen/oashttp/v2/internal/docs"
+	internalfailure "github.com/sevlumen/oashttp/v2/internal/failure"
+	"github.com/sevlumen/oashttp/v2/internal/oas31"
+	internaloperation "github.com/sevlumen/oashttp/v2/internal/operation"
+	"github.com/sevlumen/oashttp/v2/internal/schema"
 )
 
 var ErrFrozen = errors.New("oashttp application is frozen")

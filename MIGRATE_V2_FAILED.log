@@ -1,3 +1,0 @@
-error: the following file has local modifications:
-    .github/workflows/migrate-v2.yml
-(use --cached to keep the file, or -f to force removal)

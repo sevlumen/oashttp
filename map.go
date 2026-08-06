@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"reflect"
 
-	"github.com/quang020102/go-osm/internal/core"
-	internaloperation "github.com/quang020102/go-osm/internal/operation"
+	"github.com/sevlumen/oashttp/v2/internal/core"
+	internaloperation "github.com/sevlumen/oashttp/v2/internal/operation"
 )
 
 func MapGet[I any, O any](group *Group, path string, handler func(context.Context, I) Result[O]) *OperationBuilder[O] {

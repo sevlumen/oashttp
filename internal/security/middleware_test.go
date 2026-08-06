@@ -5,7 +5,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/quang020102/go-osm/internal/core"
+	"github.com/sevlumen/oashttp/v2/internal/core"
 )
 
 type auth struct{ ok bool }

@@ -6,8 +6,8 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/quang020102/go-osm/internal/core"
-	internalfailure "github.com/quang020102/go-osm/internal/failure"
+	"github.com/sevlumen/oashttp/v2/internal/core"
+	internalfailure "github.com/sevlumen/oashttp/v2/internal/failure"
 )
 
 type Result[T any] struct {

@@ -6,7 +6,7 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/quang020102/go-osm/internal/oas31"
+	"github.com/sevlumen/oashttp/v2/internal/oas31"
 )
 
 type SchemaProvider interface{ JSONSchema() map[string]any }
@@ -50,7 +50,7 @@ func (r *Registry) schemaFor(t reflect.Type, stack map[reflect.Type]bool) (*oas3
 		s := oas31.Schema{"type": "string", "format": "date-time"}
 		return &s, nil
 	}
-	if t.PkgPath() == "github.com/quang020102/go-osm" && t.Name() == "UUID" {
+	if t.PkgPath() == "github.com/sevlumen/oashttp/v2" && t.Name() == "UUID" {
 		s := oas31.Schema{"type": "string", "format": "uuid"}
 		return &s, nil
 	}

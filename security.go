@@ -3,8 +3,8 @@ package oashttp
 import (
 	"context"
 
-	"github.com/quang020102/go-osm/internal/core"
-	internalsecurity "github.com/quang020102/go-osm/internal/security"
+	"github.com/sevlumen/oashttp/v2/internal/core"
+	internalsecurity "github.com/sevlumen/oashttp/v2/internal/security"
 )
 
 type Principal = core.Principal

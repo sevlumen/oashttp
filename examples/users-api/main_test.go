@@ -11,7 +11,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/quang020102/go-osm"
+	"github.com/sevlumen/oashttp/v2"
 )
 
 type testAuthenticator struct{}

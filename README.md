@@ -1,20 +1,31 @@
 # oashttp
 
-[![CI](https://github.com/quang020102/go-osm/actions/workflows/ci.yml/badge.svg)](https://github.com/quang020102/go-osm/actions/workflows/ci.yml)
+[![CI](https://github.com/sevlumen/oashttp/actions/workflows/ci.yml/badge.svg)](https://github.com/sevlumen/oashttp/actions/workflows/ci.yml)
 
 `oashttp` is a zero-third-party-runtime-dependency Go library for typed `net/http` JSON endpoints, compiled request binding and validation, RFC 9457-style Problem Details, authorization hooks, panic recovery, and OpenAPI 3.1 generation.
 
-**Stable release:** `v1.0.1`
+**Stable release:** `v2.0.0`
 
-**Module:** `github.com/quang020102/go-osm`
+**Module:** `github.com/sevlumen/oashttp/v2`
 
 **Minimum Go version:** Go 1.22
 
 ## Install
 
 ```bash
-go get github.com/quang020102/go-osm@v1.0.1
+go get github.com/sevlumen/oashttp/v2@v1.0.1
 ```
+
+## Migrating from v1
+
+Version 2 uses the canonical module path `github.com/sevlumen/oashttp/v2`. Replace imports from `github.com/quang020102/go-osm`, then run:
+
+```bash
+go get github.com/sevlumen/oashttp/v2@v2.0.0
+go mod tidy
+```
+
+The legacy `github.com/quang020102/go-osm@v1.0.1` module remains available for applications that are not ready to migrate.
 
 The Go module has no third-party runtime dependencies. Swagger UI assets are loaded by the browser from a pinned CDN by default and can be replaced with an application-controlled mirror.
 
@@ -29,7 +40,7 @@ import (
     "net/http"
     "time"
 
-    oashttp "github.com/quang020102/go-osm"
+    oashttp "github.com/sevlumen/oashttp/v2"
 )
 
 type GetUserInput struct {
