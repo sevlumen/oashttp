@@ -54,7 +54,7 @@ jobs:
               exit 1
             fi
 
-            git rm .github/workflows/migrate-v2.yml
+            git rm -f .github/workflows/migrate-v2.yml
             rm -f MIGRATE_V2_FAILED.log
             git add -A
             git diff --cached --check
