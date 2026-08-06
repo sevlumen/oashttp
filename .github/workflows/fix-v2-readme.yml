@@ -29,8 +29,8 @@ jobs:
             set -euo pipefail
             grep -q 'go get github.com/sevlumen/oashttp/v2@v1.0.1' README.md
             sed -i 's#go get github.com/sevlumen/oashttp/v2@v1.0.1#go get github.com/sevlumen/oashttp/v2@v2.0.0#' README.md
-            if git grep -n 'github.com/sevlumen/oashttp/v2@v1.0.1'; then
-              echo 'stale v1 tag remains on the v2 module path'
+            if grep -n 'github.com/sevlumen/oashttp/v2@v1.0.1' README.md; then
+              echo 'stale v1 tag remains on the v2 module path in README'
               exit 1
             fi
             git rm -f .github/workflows/fix-v2-readme.yml
