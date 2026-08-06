@@ -20,22 +20,28 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: a9cca0977645b31a44c503db63e8003de30b06ce
           fetch-depth: 0
       - uses: actions/setup-go@v7
         with:
           go-version: "1.26.x"
           cache: false
-      - name: Verify and publish
+      - name: Verify clean source and publish
         shell: bash
         run: |
           set +e
           (
             set -euo pipefail
-            test "$(git rev-parse HEAD)" = "a9cca0977645b31a44c503db63e8003de30b06ce"
             grep -qx 'module github.com/sevlumen/oashttp/v2' go.mod
             grep -qx 'const Version = "2.0.0"' version.go
+            grep -q 'Version != "2.0.0"' version_test.go
             grep -q 'go get github.com/sevlumen/oashttp/v2@v2.0.0' README.md
+
+            git rm -f .github/workflows/finalize-v2.0.0.yml FINALIZE_V2_FAILED.log
+            git config user.name 'github-actions[bot]'
+            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+            git commit -m 'release: finalize canonical v2.0.0 source'
+            release_sha="$(git rev-parse HEAD)"
+
             if git grep -n 'github.com/quang020102/go-osm' -- '*.go' go.mod '.github/**'; then
               echo 'legacy module path remains in executable source'
               exit 1
@@ -70,9 +76,8 @@ jobs:
               echo 'v2.0.0 already exists'
               exit 1
             fi
-            git config user.name 'github-actions[bot]'
-            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-            git tag -a v2.0.0 a9cca0977645b31a44c503db63e8003de30b06ce -m 'Release v2.0.0'
+            git tag -a v2.0.0 "$release_sha" -m 'Release v2.0.0'
+            git push origin HEAD:main
             git push origin refs/tags/v2.0.0
           ) > /tmp/finalize-v2.log 2>&1
           status=$?
