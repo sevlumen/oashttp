@@ -243,10 +243,10 @@ func (a *App) build() {
 	for index := len(middlewares) - 1; index >= 0; index-- {
 		handler = middlewares[index](handler)
 	}
-	handler = operationCarrierMiddleware(handler)
 	if !cfg.DisablePanicRecovery {
 		handler = recoverPanics(handler, cfg.ErrorHandler, cfg.FailureFormatter, failureContentType)
 	}
+	handler = operationCarrierMiddleware(handler)
 	a.builtHandler = handler
 }
 
