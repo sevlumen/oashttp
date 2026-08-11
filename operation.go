@@ -37,7 +37,7 @@ func (b *OperationBuilder[T]) Use(values ...Middleware) *OperationBuilder[T] {
 			if middleware == nil {
 				panic("oashttp: middleware is nil")
 			}
-			d.Middlewares = append(d.Middlewares, func(http.Handler) http.Handler(middleware))
+			d.Middlewares = append(d.Middlewares, middleware)
 		}
 	})
 }
@@ -70,6 +70,7 @@ func (b *OperationBuilder[T]) ProducesResponse(status int, description, contentT
 	})
 }
 func (b *OperationBuilder[T]) RequireSecurity(name string) *OperationBuilder[T] {
+	name = normalizeSecurityName(name)
 	return b.mutate(func(d *internaloperation.Definition) { d.SecurityName = name })
 }
 func (b *OperationBuilder[T]) RequireFeatureAndPermission(feature, permission string) *OperationBuilder[T] {
