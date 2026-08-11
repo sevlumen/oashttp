@@ -4,6 +4,8 @@ All notable changes to this project are documented here. The project follows Sem
 
 ## [Unreleased]
 
+## [2.0.1] - 2026-08-11
+
 ### Added
 
 - `MapHandler` and `RawOperationBuilder` for standard `net/http` handlers that share the typed API router, operation metadata, scoped middleware, security integration, panic recovery, duplicate-route checks, and OpenAPI document.
@@ -16,6 +18,7 @@ All notable changes to this project are documented here. The project follows Sem
 ### Changed
 
 - Operation metadata is now available to scoped middleware before the handler, to application-wide middleware after routing returns, and to `ErrorHandler` for recovered routed panics.
+- Authenticated principals remain visible to scoped middleware and can also be observed by application-wide middleware after `next.ServeHTTP(...)` returns.
 - `SECURITY.md` and `SUPPORT.md` now describe v2 as the supported feature line and v1 as security-fixes-only.
 - Streaming and custom-representation endpoints can remain inside `oashttp` through `MapHandler` instead of requiring a separate external router.
 
@@ -23,7 +26,8 @@ All notable changes to this project are documented here. The project follows Sem
 
 - All existing v2 typed endpoint, legacy `Authenticator` / `Authorizer`, failure formatting, and application-wide middleware APIs remain source-compatible.
 - The reserved OpenAPI security scheme name `bearerAuth` remains owned by the legacy bearer integration.
-- OAuth2/OpenID Connect flow objects and first-class scope requirements are intentionally deferred to a later release.
+- Named providers support OpenAPI `http` and `apiKey` schemes in v2.0.1; OAuth2/OpenID Connect flow objects and first-class scope requirements are intentionally deferred to a later release.
+- No third-party runtime dependencies were added.
 
 ## [2.0.0] - 2026-08-06
 
