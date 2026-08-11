@@ -44,7 +44,7 @@ func mapOperation[I any, O any](group *Group, method, path string, handler func(
 		Responses:  map[int]internaloperation.ResponseSpec{},
 	}
 	for _, middleware := range group.middlewares {
-		def.Middlewares = append(def.Middlewares, func(http.Handler) http.Handler(middleware))
+		def.Middlewares = append(def.Middlewares, middleware)
 	}
 	def.Invoke = func(ctx context.Context, value reflect.Value) core.ResultWriter {
 		input := value.Interface().(I)
