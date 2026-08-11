@@ -2,6 +2,29 @@
 
 All notable changes to this project are documented here. The project follows Semantic Versioning.
 
+## [Unreleased]
+
+### Added
+
+- `MapHandler` and `RawOperationBuilder` for standard `net/http` handlers that share the typed API router, operation metadata, scoped middleware, security integration, panic recovery, duplicate-route checks, and OpenAPI document.
+- Raw request media-type documentation through `.Consumes(...)`; raw handlers retain full responsibility for body parsing, streaming, limits, and `Content-Type` enforcement.
+- Runtime route-constraint validation for raw handlers, including `uuid`, integer, boolean, date, and datetime constraints.
+- `Group.Use(...)` and operation-level `.Use(...)` middleware with deterministic parent-group, child-group, and operation ordering.
+- `Config.SecurityProviders`, `SecurityProvider`, and `SecurityScheme` for named request-aware authentication and configurable OpenAPI `http` / `apiKey` schemes.
+- `OperationInfo`, `OperationFromContext`, `OperationID`, and `RoutePattern` for low-cardinality metrics, traces, audit logging, and panic reporting.
+
+### Changed
+
+- Operation metadata is now available to scoped middleware before the handler, to application-wide middleware after routing returns, and to `ErrorHandler` for recovered routed panics.
+- `SECURITY.md` and `SUPPORT.md` now describe v2 as the supported feature line and v1 as security-fixes-only.
+- Streaming and custom-representation endpoints can remain inside `oashttp` through `MapHandler` instead of requiring a separate external router.
+
+### Compatibility
+
+- All existing v2 typed endpoint, legacy `Authenticator` / `Authorizer`, failure formatting, and application-wide middleware APIs remain source-compatible.
+- The reserved OpenAPI security scheme name `bearerAuth` remains owned by the legacy bearer integration.
+- OAuth2/OpenID Connect flow objects and first-class scope requirements are intentionally deferred to a later release.
+
 ## [2.0.0] - 2026-08-06
 
 ### Changed
@@ -48,7 +71,7 @@ The default formatter preserves the `v1.0.0` Problem Details runtime and OpenAPI
 ### Changed
 
 - Omitted `jsonSchemaDialect` so OpenAPI 3.1 uses the default OAS dialect and Swagger UI does not warn about an unsupported custom dialect.
-- JSON responses are serialized before headers are committed, preventing a false success status when encoding fails.
+- JSON responses are serialized before response headers are committed, preventing a false success status when encoding fails.
 - Oversized JSON requests now return `413`; unsupported body media types return `415`.
 - Validation runs only after request binding succeeds.
 - Framework-generated error responses use `application/problem+json`, `Cache-Control: no-store`, and `X-Content-Type-Options: nosniff`.
