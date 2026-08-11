@@ -15,7 +15,6 @@ type SecurityScheme = core.SecurityScheme
 type SecurityProvider = core.SecurityProvider
 
 var ErrUnauthorized = internalsecurity.ErrUnauthorized
-var ErrForbidden = internalsecurity.ErrForbidden
 
 func PrincipalFromContext(ctx context.Context) (*Principal, bool) {
 	return internalsecurity.PrincipalFromContext(ctx)
