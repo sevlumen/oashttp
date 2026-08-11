@@ -64,6 +64,15 @@ func (b *RawOperationBuilder) Use(values ...Middleware) *RawOperationBuilder {
 		}
 	})
 }
+
+// Consumes documents request media types for a raw handler. The raw handler
+// remains responsible for Content-Type enforcement and body parsing/streaming.
+func (b *RawOperationBuilder) Consumes(contentTypes ...string) *RawOperationBuilder {
+	return b.mutate(func(d *internaloperation.Definition) {
+		d.RawRequestMediaTypes = append([]string(nil), contentTypes...)
+	})
+}
+
 func (b *RawOperationBuilder) Produces(status int) *RawOperationBuilder {
 	return b.mutate(func(d *internaloperation.Definition) {
 		d.Responses[status] = internaloperation.ResponseSpec{Kind: internaloperation.ResponseRaw, Description: http.StatusText(status)}
