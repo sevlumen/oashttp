@@ -31,6 +31,16 @@ func (b *OperationBuilder[T]) WithSummary(value string) *OperationBuilder[T] {
 func (b *OperationBuilder[T]) WithDescription(value string) *OperationBuilder[T] {
 	return b.mutate(func(d *internaloperation.Definition) { d.Description = value })
 }
+func (b *OperationBuilder[T]) Use(values ...Middleware) *OperationBuilder[T] {
+	return b.mutate(func(d *internaloperation.Definition) {
+		for _, middleware := range values {
+			if middleware == nil {
+				panic("oashttp: middleware is nil")
+			}
+			d.Middlewares = append(d.Middlewares, func(http.Handler) http.Handler(middleware))
+		}
+	})
+}
 func (b *OperationBuilder[T]) Produces(status int) *OperationBuilder[T] {
 	return b.ProducesJSON(status, http.StatusText(status))
 }
@@ -58,6 +68,9 @@ func (b *OperationBuilder[T]) ProducesResponse(status int, description, contentT
 			ModelType:   reflect.TypeOf(model),
 		}
 	})
+}
+func (b *OperationBuilder[T]) RequireSecurity(name string) *OperationBuilder[T] {
+	return b.mutate(func(d *internaloperation.Definition) { d.SecurityName = name })
 }
 func (b *OperationBuilder[T]) RequireFeatureAndPermission(feature, permission string) *OperationBuilder[T] {
 	return b.mutate(func(d *internaloperation.Definition) { d.Feature = feature; d.Permission = permission })
