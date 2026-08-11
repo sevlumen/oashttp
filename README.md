@@ -4,7 +4,7 @@
 
 `oashttp` is a zero-third-party-runtime-dependency Go library for typed `net/http` JSON endpoints, compiled request binding and validation, RFC 9457-style Problem Details, security integration, panic recovery, scoped middleware, raw-handler escape hatches, and OpenAPI 3.1 generation.
 
-**Stable release:** `v2.0.0`
+**Stable release:** `v2.0.1`
 
 **Module:** `github.com/sevlumen/oashttp/v2`
 
@@ -13,12 +13,12 @@
 ## Install
 
 ```bash
-go get github.com/sevlumen/oashttp/v2@v2.0.0
+go get github.com/sevlumen/oashttp/v2@v2.0.1
 ```
 
-## Upcoming v2.0.1
+## What's new in v2.0.1
 
-The current development branch adds the following backward-compatible APIs planned for `v2.0.1`:
+Version 2.0.1 adds backward-compatible production integration boundaries while preserving the typed JSON API:
 
 - `MapHandler` for standard `http.Handler` endpoints that stay in the same router and OpenAPI document;
 - `Group.Use` and operation-level `.Use(...)` middleware;
@@ -33,7 +33,7 @@ OAuth2 flows and first-class scope requirements are not part of this patch; the 
 Version 2 uses the canonical module path `github.com/sevlumen/oashttp/v2`. Replace imports from `github.com/quang020102/go-osm`, then run:
 
 ```bash
-go get github.com/sevlumen/oashttp/v2@v2.0.0
+go get github.com/sevlumen/oashttp/v2@v2.0.1
 go mod tidy
 ```
 
@@ -237,7 +237,7 @@ app := oashttp.New(oashttp.Config{
 })
 ```
 
-Handlers can return the global format with `Fail`, `BadRequest`, `NotFound`, and the other failure helpers. For an endpoint-specific JSON body, pair `ErrorJSON` with `ProducesResponse`.
+Handlers can return the global format with `Fail`, `BadRequest`, `NotFound`, and the other existing failure helpers. For an endpoint-specific JSON body, pair `ErrorJSON` with `ProducesResponse`.
 
 Generated typed OpenAPI operations automatically document applicable `400`, `401`, `403`, `413`, `415`, and `500` framework responses. Raw operations document only the framework failures that the raw integration itself can generate plus explicitly declared responses.
 
@@ -303,7 +303,7 @@ route := oashttp.RoutePattern(ctx)
 
 `OperationInfo` contains the operation ID, HTTP method, and normalized OpenAPI route pattern. This avoids using concrete request URLs as metric labels.
 
-Scoped group/operation middleware and handlers can read metadata before the handler executes. Application-wide middleware wraps routing, so it can read the populated metadata after `next.ServeHTTP(...)` returns. The same request-scoped metadata is available to `ErrorHandler` when the default recovery layer reports a panic from a routed operation.
+Scoped group/operation middleware and handlers can read metadata before the handler executes. Application-wide middleware wraps routing, so it can read the populated metadata and authenticated principal after `next.ServeHTTP(...)` returns. The same request-scoped metadata is available to `ErrorHandler` when the default recovery layer reports a panic from a routed operation.
 
 This supports metrics such as:
 
