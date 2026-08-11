@@ -32,7 +32,7 @@ func MapHandler(group *Group, method, path string, handler http.Handler) *RawOpe
 		Responses:  map[int]internaloperation.ResponseSpec{},
 	}
 	for _, middleware := range group.middlewares {
-		def.Middlewares = append(def.Middlewares, func(http.Handler) http.Handler(middleware))
+		def.Middlewares = append(def.Middlewares, middleware)
 	}
 	group.app.registerOperation(def)
 	return &RawOperationBuilder{app: group.app, definition: def}
@@ -60,7 +60,7 @@ func (b *RawOperationBuilder) Use(values ...Middleware) *RawOperationBuilder {
 			if middleware == nil {
 				panic("oashttp: middleware is nil")
 			}
-			d.Middlewares = append(d.Middlewares, func(http.Handler) http.Handler(middleware))
+			d.Middlewares = append(d.Middlewares, middleware)
 		}
 	})
 }
@@ -85,6 +85,7 @@ func (b *RawOperationBuilder) ProducesResponse(status int, description, contentT
 	})
 }
 func (b *RawOperationBuilder) RequireSecurity(name string) *RawOperationBuilder {
+	name = normalizeSecurityName(name)
 	return b.mutate(func(d *internaloperation.Definition) { d.SecurityName = name })
 }
 func (b *RawOperationBuilder) RequireFeatureAndPermission(feature, permission string) *RawOperationBuilder {
