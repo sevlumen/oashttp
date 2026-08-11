@@ -71,6 +71,12 @@ func Compile(def *Definition, opts Options) (Compiled, error) {
 			}
 		}
 	}
+	for _, contentType := range def.RawRequestMediaTypes {
+		mediaType, _, err := mime.ParseMediaType(strings.TrimSpace(contentType))
+		if err != nil || mediaType == "" {
+			return Compiled{}, fmt.Errorf("%s %s: raw request has invalid content type %q", def.Method, def.UserRoute, contentType)
+		}
+	}
 
 	pattern, err := route.Parse(def.FullRoute)
 	if err != nil {
@@ -374,6 +380,14 @@ func compileOAS(def *Definition, plan *binding.Plan, pattern route.Pattern, regi
 			return nil, fmt.Errorf("request body: %w", err)
 		}
 		operation.RequestBody = &oas31.RequestBody{Required: body.Required, Content: map[string]oas31.MediaType{"application/json": {Schema: ref}}}
+	}
+	if len(def.RawRequestMediaTypes) > 0 {
+		content := make(map[string]oas31.MediaType, len(def.RawRequestMediaTypes))
+		for _, raw := range def.RawRequestMediaTypes {
+			mediaType, _, _ := mime.ParseMediaType(strings.TrimSpace(raw))
+			content[mediaType] = oas31.MediaType{}
+		}
+		operation.RequestBody = &oas31.RequestBody{Required: true, Content: content}
 	}
 
 	securityName := def.SecurityName
