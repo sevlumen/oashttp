@@ -2,12 +2,15 @@
 
 ## Supported versions
 
-Security fixes are provided for the latest `v1.x` release. Users should update to the newest patch release before reporting an issue.
+The canonical `github.com/sevlumen/oashttp/v2` module is the fully supported release line. The legacy v1 module receives security fixes only so existing applications have a migration window.
 
 | Version | Supported |
 | --- | --- |
-| Latest `v1.x` | Yes |
-| Older minor or pre-release versions | No |
+| `v2.x` | Yes |
+| `v1.x` | Security fixes only |
+| `< v1` and pre-release versions | No |
+
+Users should update to the newest patch release in their supported major version before reporting an issue.
 
 ## Reporting a vulnerability
 
