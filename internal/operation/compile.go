@@ -110,8 +110,10 @@ func Compile(def *Definition, opts Options) (Compiled, error) {
 		return Compiled{}, fmt.Errorf("%s %s: %w", def.Method, def.UserRoute, err)
 	}
 
-	endpoint := def.RawHandler
-	if endpoint == nil {
+	var endpoint http.Handler
+	if def.RawHandler != nil {
+		endpoint = rawEndpoint(def.RawHandler, pattern, opts)
+	} else {
 		endpoint = typedEndpoint(def, bindPlan, validationPlan, opts)
 	}
 	for index := len(def.Middlewares) - 1; index >= 0; index-- {
@@ -216,6 +218,41 @@ func typedEndpoint(def *Definition, bindPlan *binding.Plan, validationPlan *vali
 	})
 }
 
+func rawEndpoint(handler http.Handler, pattern route.Pattern, opts Options) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fieldErrors := make([]core.FieldError, 0)
+		for _, parameter := range pattern.Parameters {
+			raw := r.PathValue(parameter.Name)
+			if raw == "" {
+				fieldErrors = append(fieldErrors, core.FieldError{Location: "path", Field: parameter.Name, Messages: []string{"is required"}})
+				continue
+			}
+			constraint := route.Constraints[parameter.Constraint]
+			if constraint.Validate == nil {
+				continue
+			}
+			if err := constraint.Validate(raw); err != nil {
+				fieldErrors = append(fieldErrors, core.FieldError{
+					Location: "path",
+					Field:    parameter.Name,
+					Messages: []string{fmt.Sprintf("does not satisfy %s constraint", parameter.Constraint)},
+				})
+			}
+		}
+		if len(fieldErrors) > 0 {
+			ctx := r.Context()
+			report := func(err error) {
+				if opts.ErrorHandler != nil {
+					opts.ErrorHandler(ctx, err)
+				}
+			}
+			internalfailure.WriteResolved(w, opts.FailureFormatter, opts.FailureContentType, validationFailure(fieldErrors), report)
+			return
+		}
+		handler.ServeHTTP(w, r)
+	})
+}
+
 func compileOAS(def *Definition, plan *binding.Plan, pattern route.Pattern, registry *schema.Registry, failureContentType string, failureModelType reflect.Type) (*oas31.Operation, error) {
 	if registry == nil {
 		return nil, fmt.Errorf("schema registry is nil")
@@ -261,7 +298,7 @@ func compileOAS(def *Definition, plan *binding.Plan, pattern route.Pattern, regi
 		return nil, fmt.Errorf("at least one successful response must be declared")
 	}
 
-	if plan != nil {
+	if plan != nil || rawPathHasValidation(pattern) {
 		if err := addFailureResponse(responses, registry, http.StatusBadRequest, failureContentType, failureModelType); err != nil {
 			return nil, err
 		}
@@ -350,6 +387,15 @@ func compileOAS(def *Definition, plan *binding.Plan, pattern route.Pattern, regi
 		operation.Extensions = map[string]any{"x-feature": def.Feature, "x-permission": def.Permission}
 	}
 	return operation, nil
+}
+
+func rawPathHasValidation(pattern route.Pattern) bool {
+	for _, parameter := range pattern.Parameters {
+		if parameter.Constraint != "string" {
+			return true
+		}
+	}
+	return false
 }
 
 func responseDescription(status int, description string) string {
