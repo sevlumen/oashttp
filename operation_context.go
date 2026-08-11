@@ -1,24 +1,16 @@
 package oashttp
 
-import "context"
+import (
+	"context"
 
-type operationContextKey struct{}
+	"github.com/sevlumen/oashttp/v2/internal/core"
+)
 
-// OperationInfo describes the operation selected by oashttp for the request.
-type OperationInfo struct {
-	ID     string
-	Method string
-	Route  string
-}
-
-func withOperationInfo(ctx context.Context, info OperationInfo) context.Context {
-	return context.WithValue(ctx, operationContextKey{}, info)
-}
+type OperationInfo = core.OperationInfo
 
 // OperationFromContext returns metadata for the selected operation.
 func OperationFromContext(ctx context.Context) (OperationInfo, bool) {
-	info, ok := ctx.Value(operationContextKey{}).(OperationInfo)
-	return info, ok
+	return core.OperationFromContext(ctx)
 }
 
 // OperationID returns the selected OpenAPI operation ID, or an empty string.
