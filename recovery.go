@@ -1,8 +1,10 @@
 package oashttp
 
 import (
+	"bufio"
 	"context"
 	"fmt"
+	"net"
 	"net/http"
 	"runtime/debug"
 
@@ -36,6 +38,55 @@ func (w *responseState) Write(data []byte) (int, error) {
 // by the underlying response writer without falsely advertising them here.
 func (w *responseState) Unwrap() http.ResponseWriter { return w.ResponseWriter }
 
+func (w *responseState) flush() {
+	if !w.wroteHeader {
+		w.WriteHeader(http.StatusOK)
+	}
+	w.ResponseWriter.(http.Flusher).Flush()
+}
+
+func (w *responseState) hijack() (net.Conn, *bufio.ReadWriter, error) {
+	conn, rw, err := w.ResponseWriter.(http.Hijacker).Hijack()
+	if err == nil {
+		// Once the connection is taken over, recovery must not attempt to write
+		// an HTTP failure response through the original ResponseWriter.
+		w.wroteHeader = true
+	}
+	return conn, rw, err
+}
+
+type responseStateFlusher struct{ *responseState }
+
+func (w *responseStateFlusher) Flush() { w.responseState.flush() }
+
+type responseStateHijacker struct{ *responseState }
+
+func (w *responseStateHijacker) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+	return w.responseState.hijack()
+}
+
+type responseStateFlusherHijacker struct{ *responseState }
+
+func (w *responseStateFlusherHijacker) Flush() { w.responseState.flush() }
+func (w *responseStateFlusherHijacker) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+	return w.responseState.hijack()
+}
+
+func (w *responseState) capabilityWriter() http.ResponseWriter {
+	_, hasFlusher := w.ResponseWriter.(http.Flusher)
+	_, hasHijacker := w.ResponseWriter.(http.Hijacker)
+	switch {
+	case hasFlusher && hasHijacker:
+		return &responseStateFlusherHijacker{responseState: w}
+	case hasFlusher:
+		return &responseStateFlusher{responseState: w}
+	case hasHijacker:
+		return &responseStateHijacker{responseState: w}
+	default:
+		return w
+	}
+}
+
 func recoverPanics(next http.Handler, onError func(context.Context, error), formatter core.FailureFormatter, failureContentType string) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		state := &responseState{ResponseWriter: w}
@@ -52,7 +103,7 @@ func recoverPanics(next http.Handler, onError func(context.Context, error), form
 				}
 			}
 		}()
-		next.ServeHTTP(state, r)
+		next.ServeHTTP(state.capabilityWriter(), r)
 	})
 }
 

@@ -28,11 +28,14 @@ type Components struct {
 	SecuritySchemes map[string]SecurityScheme `json:"securitySchemes,omitempty"`
 }
 type PathItem struct {
-	Get    *Operation `json:"get,omitempty"`
-	Post   *Operation `json:"post,omitempty"`
-	Put    *Operation `json:"put,omitempty"`
-	Patch  *Operation `json:"patch,omitempty"`
-	Delete *Operation `json:"delete,omitempty"`
+	Get     *Operation `json:"get,omitempty"`
+	Post    *Operation `json:"post,omitempty"`
+	Put     *Operation `json:"put,omitempty"`
+	Patch   *Operation `json:"patch,omitempty"`
+	Delete  *Operation `json:"delete,omitempty"`
+	Options *Operation `json:"options,omitempty"`
+	Head    *Operation `json:"head,omitempty"`
+	Trace   *Operation `json:"trace,omitempty"`
 }
 type Operation struct {
 	OperationID string                `json:"operationId,omitempty"`

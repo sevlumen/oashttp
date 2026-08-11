@@ -128,7 +128,6 @@ func (a *App) build() {
 	mux := http.NewServeMux()
 	registered := map[string]string{}
 	operationIDs := map[string]string{}
-	protected := false
 
 	for _, def := range operations {
 		if previous, ok := operationIDs[def.OperationID]; def.OperationID != "" && ok {
@@ -144,6 +143,7 @@ func (a *App) build() {
 			Validator:          cfg.Validator,
 			Authenticator:      cfg.Authenticator,
 			Authorizer:         cfg.Authorizer,
+			SecurityProviders:  cfg.SecurityProviders,
 			ErrorHandler:       cfg.ErrorHandler,
 			FailureFormatter:   cfg.FailureFormatter,
 			FailureContentType: failureContentType,
@@ -154,11 +154,18 @@ func (a *App) build() {
 			return
 		}
 		key := def.Method + " " + compiled.Pattern.ServeMuxPath
+		registrationName := def.OperationID
+		if registrationName == "" {
+			registrationName = def.Method + " " + def.UserRoute
+		}
+		if def.InputType != nil {
+			registrationName = def.InputType.String()
+		}
 		if previous, ok := registered[key]; ok {
-			a.builtErr = fmt.Errorf("duplicate route %s registered by %s and %s", key, previous, def.InputType)
+			a.builtErr = fmt.Errorf("duplicate route %s registered by %s and %s", key, previous, registrationName)
 			return
 		}
-		registered[key] = def.InputType.String()
+		registered[key] = registrationName
 		if err := handleMuxPattern(mux, key, compiled.Handler); err != nil {
 			a.builtErr = fmt.Errorf("register %s: %w", key, err)
 			return
@@ -172,12 +179,22 @@ func (a *App) build() {
 			a.builtErr = err
 			return
 		}
-		protected = protected || compiled.Protected
+
+		if compiled.SecurityName != "" {
+			if def.SecurityName == "" {
+				document.Components.SecuritySchemes["bearerAuth"] = oas31.SecurityScheme{Type: "http", Scheme: "bearer", BearerFormat: "JWT"}
+			} else {
+				provider := cfg.SecurityProviders[compiled.SecurityName]
+				scheme, err := openAPISecurityScheme(compiled.SecurityName, provider)
+				if err != nil {
+					a.builtErr = err
+					return
+				}
+				document.Components.SecuritySchemes[compiled.SecurityName] = scheme
+			}
+		}
 	}
 	document.Components.Schemas = registry.Components()
-	if protected {
-		document.Components.SecuritySchemes["bearerAuth"] = oas31.SecurityScheme{Type: "http", Scheme: "bearer", BearerFormat: "JWT"}
-	}
 
 	openAPIBytes, err := oas31.Marshal(document)
 	if err != nil {
@@ -229,7 +246,47 @@ func (a *App) build() {
 	if !cfg.DisablePanicRecovery {
 		handler = recoverPanics(handler, cfg.ErrorHandler, cfg.FailureFormatter, failureContentType)
 	}
+	handler = operationCarrierMiddleware(handler)
 	a.builtHandler = handler
+}
+
+func openAPISecurityScheme(name string, provider SecurityProvider) (oas31.SecurityScheme, error) {
+	if provider == nil {
+		return oas31.SecurityScheme{}, fmt.Errorf("security provider %q is not configured", name)
+	}
+	scheme := provider.SecurityScheme()
+	result := oas31.SecurityScheme{
+		Type:         strings.TrimSpace(scheme.Type),
+		Scheme:       strings.TrimSpace(scheme.Scheme),
+		BearerFormat: strings.TrimSpace(scheme.BearerFormat),
+		Name:         strings.TrimSpace(scheme.Name),
+		In:           strings.TrimSpace(scheme.In),
+	}
+	switch result.Type {
+	case "http":
+		if result.Scheme == "" {
+			return oas31.SecurityScheme{}, fmt.Errorf("security provider %q: http scheme is required", name)
+		}
+		if result.Name != "" || result.In != "" {
+			return oas31.SecurityScheme{}, fmt.Errorf("security provider %q: http schemes cannot declare apiKey name or in fields", name)
+		}
+		if result.BearerFormat != "" && !strings.EqualFold(result.Scheme, "bearer") {
+			return oas31.SecurityScheme{}, fmt.Errorf("security provider %q: bearerFormat is valid only for http bearer schemes", name)
+		}
+	case "apiKey":
+		if result.Name == "" {
+			return oas31.SecurityScheme{}, fmt.Errorf("security provider %q: apiKey name is required", name)
+		}
+		if result.In != "header" && result.In != "query" && result.In != "cookie" {
+			return oas31.SecurityScheme{}, fmt.Errorf("security provider %q: apiKey in must be header, query, or cookie", name)
+		}
+		if result.Scheme != "" || result.BearerFormat != "" {
+			return oas31.SecurityScheme{}, fmt.Errorf("security provider %q: apiKey schemes cannot declare http scheme or bearerFormat fields", name)
+		}
+	default:
+		return oas31.SecurityScheme{}, fmt.Errorf("security provider %q: unsupported OpenAPI security type %q", name, result.Type)
+	}
+	return result, nil
 }
 
 func setPathOperation(item *oas31.PathItem, method string, operation *oas31.Operation) error {
@@ -244,6 +301,12 @@ func setPathOperation(item *oas31.PathItem, method string, operation *oas31.Oper
 		item.Patch = operation
 	case http.MethodDelete:
 		item.Delete = operation
+	case http.MethodOptions:
+		item.Options = operation
+	case http.MethodHead:
+		item.Head = operation
+	case http.MethodTrace:
+		item.Trace = operation
 	default:
 		return fmt.Errorf("unsupported HTTP method %q", method)
 	}

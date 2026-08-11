@@ -31,6 +31,7 @@ type Config struct {
 	ErrorHandler           func(context.Context, error)
 	Authenticator          Authenticator
 	Authorizer             Authorizer
+	SecurityProviders      map[string]SecurityProvider
 	FailureFormatter       FailureFormatter
 
 	// DisablePanicRecovery disables the default outer recovery middleware.

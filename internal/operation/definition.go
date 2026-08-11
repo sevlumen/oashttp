@@ -2,6 +2,7 @@ package operation
 
 import (
 	"context"
+	"net/http"
 	"reflect"
 
 	"github.com/sevlumen/oashttp/v2/internal/core"
@@ -13,6 +14,7 @@ const (
 	ResponseJSON ResponseKind = iota
 	ResponseProblem
 	ResponseCustom
+	ResponseRaw
 )
 
 type ResponseSpec struct {
@@ -21,19 +23,24 @@ type ResponseSpec struct {
 	ContentType string
 	ModelType   reflect.Type
 }
+
 type Definition struct {
-	Method      string
-	UserRoute   string
-	FullRoute   string
-	InputType   reflect.Type
-	OutputType  reflect.Type
-	Invoke      func(context.Context, reflect.Value) core.ResultWriter
-	OperationID string
-	Tags        []string
-	Summary     string
-	Description string
-	Responses   map[int]ResponseSpec
-	Validation  bool
-	Feature     string
-	Permission  string
+	Method               string
+	UserRoute            string
+	FullRoute            string
+	InputType            reflect.Type
+	OutputType           reflect.Type
+	Invoke               func(context.Context, reflect.Value) core.ResultWriter
+	RawHandler           http.Handler
+	RawRequestMediaTypes []string
+	OperationID          string
+	Tags                 []string
+	Summary              string
+	Description          string
+	Responses            map[int]ResponseSpec
+	Validation           bool
+	Feature              string
+	Permission           string
+	SecurityName         string
+	Middlewares          []func(http.Handler) http.Handler
 }
