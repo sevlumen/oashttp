@@ -19,10 +19,13 @@ func TestRawHandlerDocumentsConsumedMediaTypes(t *testing.T) {
 	recorder := httptest.NewRecorder()
 	app.MustBuild().ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/openapi.json", nil))
 	body := recorder.Body.String()
-	for _, expected := range []string{`"requestBody"`, `"required":true`, `"application/octet-stream":{}`} {
+	for _, expected := range []string{`"requestBody"`, `"application/octet-stream":{}`} {
 		if !strings.Contains(body, expected) {
 			t.Fatalf("OpenAPI missing %s: %s", expected, body)
 		}
+	}
+	if strings.Contains(body, `"required":true`) {
+		t.Fatalf("raw Consumes must not require an application-owned request body: %s", body)
 	}
 }
 
