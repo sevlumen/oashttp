@@ -148,11 +148,13 @@ func Compile(def *Definition, opts Options) (Compiled, error) {
 			provider := opts.SecurityProviders[def.SecurityName]
 			next, principal, securityFailure := internalsecurity.AuthenticateProvider(ctx, r, provider)
 			if securityFailure != nil {
+				applyProviderChallenge(w, provider, securityFailure)
 				writeFailure(core.Failure{Status: securityFailure.Status, Code: securityFailure.Code, Detail: securityFailure.Detail})
 				return
 			}
 			ctx = next
 			if securityFailure = internalsecurity.AuthorizePrincipal(ctx, principal, def.Feature, def.Permission, opts.Authorizer); securityFailure != nil {
+				applyProviderChallenge(w, provider, securityFailure)
 				writeFailure(core.Failure{Status: securityFailure.Status, Code: securityFailure.Code, Detail: securityFailure.Detail})
 				return
 			}
