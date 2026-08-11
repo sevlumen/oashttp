@@ -10,6 +10,7 @@ All notable changes to this project are documented here. The project follows Sem
 
 - `MapHandler` and `RawOperationBuilder` for standard `net/http` handlers that share the typed API router, operation metadata, scoped middleware, security integration, panic recovery, duplicate-route checks, and OpenAPI document.
 - Raw request media-type documentation through `.Consumes(...)`; raw handlers retain full responsibility for body parsing, streaming, limits, and `Content-Type` enforcement.
+- OpenAPI registration for raw `HEAD`, `OPTIONS`, and `TRACE` operations in addition to the existing typed-operation methods.
 - Runtime route-constraint validation for raw handlers, including `uuid`, integer, boolean, date, and datetime constraints.
 - `Group.Use(...)` and operation-level `.Use(...)` middleware with deterministic parent-group, child-group, and operation ordering.
 - `Config.SecurityProviders`, `SecurityProvider`, and `SecurityScheme` for named request-aware authentication and configurable OpenAPI `http` / `apiKey` schemes.
@@ -17,6 +18,9 @@ All notable changes to this project are documented here. The project follows Sem
 
 ### Changed
 
+- Raw `.Consumes(...)` declares media types without claiming that the application-owned request body is mandatory.
+- Default panic recovery now preserves `http.Flusher` and `http.Hijacker` when the underlying response writer provides them, so raw streaming and connection-upgrade handlers keep standard `net/http` capabilities.
+- Named security providers validate OpenAPI component names and reject scheme fields that do not apply to the declared `http` or `apiKey` type.
 - Operation metadata is now available to scoped middleware before the handler, to application-wide middleware after routing returns, and to `ErrorHandler` for recovered routed panics.
 - Authenticated principals remain visible to scoped middleware and can also be observed by application-wide middleware after `next.ServeHTTP(...)` returns.
 - `SECURITY.md` and `SUPPORT.md` now describe v2 as the supported feature line and v1 as security-fixes-only.
