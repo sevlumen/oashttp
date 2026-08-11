@@ -389,7 +389,7 @@ func compileOAS(def *Definition, plan *binding.Plan, pattern route.Pattern, regi
 			mediaType, _, _ := mime.ParseMediaType(strings.TrimSpace(raw))
 			content[mediaType] = oas31.MediaType{}
 		}
-		operation.RequestBody = &oas31.RequestBody{Required: true, Content: content}
+		operation.RequestBody = &oas31.RequestBody{Content: content}
 	}
 
 	securityName := def.SecurityName
