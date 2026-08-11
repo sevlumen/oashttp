@@ -267,12 +267,21 @@ func openAPISecurityScheme(name string, provider SecurityProvider) (oas31.Securi
 		if result.Scheme == "" {
 			return oas31.SecurityScheme{}, fmt.Errorf("security provider %q: http scheme is required", name)
 		}
+		if result.Name != "" || result.In != "" {
+			return oas31.SecurityScheme{}, fmt.Errorf("security provider %q: http schemes cannot declare apiKey name or in fields", name)
+		}
+		if result.BearerFormat != "" && !strings.EqualFold(result.Scheme, "bearer") {
+			return oas31.SecurityScheme{}, fmt.Errorf("security provider %q: bearerFormat is valid only for http bearer schemes", name)
+		}
 	case "apiKey":
 		if result.Name == "" {
 			return oas31.SecurityScheme{}, fmt.Errorf("security provider %q: apiKey name is required", name)
 		}
 		if result.In != "header" && result.In != "query" && result.In != "cookie" {
 			return oas31.SecurityScheme{}, fmt.Errorf("security provider %q: apiKey in must be header, query, or cookie", name)
+		}
+		if result.Scheme != "" || result.BearerFormat != "" {
+			return oas31.SecurityScheme{}, fmt.Errorf("security provider %q: apiKey schemes cannot declare http scheme or bearerFormat fields", name)
 		}
 	default:
 		return oas31.SecurityScheme{}, fmt.Errorf("security provider %q: unsupported OpenAPI security type %q", name, result.Type)
@@ -292,6 +301,12 @@ func setPathOperation(item *oas31.PathItem, method string, operation *oas31.Oper
 		item.Patch = operation
 	case http.MethodDelete:
 		item.Delete = operation
+	case http.MethodOptions:
+		item.Options = operation
+	case http.MethodHead:
+		item.Head = operation
+	case http.MethodTrace:
+		item.Trace = operation
 	default:
 		return fmt.Errorf("unsupported HTTP method %q", method)
 	}
