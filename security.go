@@ -28,5 +28,21 @@ func normalizeSecurityName(name string) string {
 	if name == "bearerAuth" {
 		panic("oashttp: security name bearerAuth is reserved for Config.Authenticator")
 	}
+	if !isOpenAPIComponentName(name) {
+		panic("oashttp: security name must match ^[a-zA-Z0-9.\\-_]+$")
+	}
 	return name
+}
+
+func isOpenAPIComponentName(name string) bool {
+	if name == "" {
+		return false
+	}
+	for _, r := range name {
+		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '.' || r == '-' || r == '_' {
+			continue
+		}
+		return false
+	}
+	return true
 }
