@@ -224,8 +224,8 @@ func compileOAS(def *Definition, plan *binding.Plan, pattern route.Pattern, regi
 		return nil, fmt.Errorf("operation ID is required")
 	}
 
-	var params []binding.DocumentedParameter
-	var body *binding.DocumentedBody
+	var params []binding.ParameterDoc
+	var body *binding.BodyDoc
 	if plan != nil {
 		params, body = plan.Documentation()
 	}
