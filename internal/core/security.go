@@ -21,7 +21,7 @@ type Authorizer interface {
 }
 
 // SecurityScheme describes the OpenAPI security scheme exposed by a provider.
-// v2.0.1 supports the fields needed by HTTP bearer and API-key schemes.
+// The current named-provider model covers HTTP and API-key schemes.
 type SecurityScheme struct {
 	Type         string
 	Scheme       string
