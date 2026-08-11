@@ -14,6 +14,7 @@ const (
 	ResponseJSON ResponseKind = iota
 	ResponseProblem
 	ResponseCustom
+	ResponseRaw
 )
 
 type ResponseSpec struct {
@@ -24,21 +25,21 @@ type ResponseSpec struct {
 }
 
 type Definition struct {
-	Method      string
-	UserRoute   string
-	FullRoute   string
-	InputType   reflect.Type
-	OutputType  reflect.Type
-	Invoke      func(context.Context, reflect.Value) core.ResultWriter
-	RawHandler  http.Handler
-	OperationID string
-	Tags        []string
-	Summary     string
-	Description string
-	Responses   map[int]ResponseSpec
-	Validation  bool
-	Feature     string
-	Permission  string
+	Method       string
+	UserRoute    string
+	FullRoute    string
+	InputType    reflect.Type
+	OutputType   reflect.Type
+	Invoke       func(context.Context, reflect.Value) core.ResultWriter
+	RawHandler   http.Handler
+	OperationID  string
+	Tags         []string
+	Summary      string
+	Description  string
+	Responses    map[int]ResponseSpec
+	Validation   bool
+	Feature      string
+	Permission   string
 	SecurityName string
-	Middlewares []func(http.Handler) http.Handler
+	Middlewares  []func(http.Handler) http.Handler
 }
