@@ -35,7 +35,17 @@ func mapOperation[I any, O any](group *Group, method, path string, handler func(
 	full := joinPaths(group.prefix, path)
 	inputType := reflect.TypeOf((*I)(nil)).Elem()
 	outputType := reflect.TypeOf((*O)(nil)).Elem()
-	def := &internaloperation.Definition{Method: method, UserRoute: full, FullRoute: full, InputType: inputType, OutputType: outputType, Responses: map[int]internaloperation.ResponseSpec{}}
+	def := &internaloperation.Definition{
+		Method:     method,
+		UserRoute:  full,
+		FullRoute:  full,
+		InputType:  inputType,
+		OutputType: outputType,
+		Responses:  map[int]internaloperation.ResponseSpec{},
+	}
+	for _, middleware := range group.middlewares {
+		def.Middlewares = append(def.Middlewares, func(http.Handler) http.Handler(middleware))
+	}
 	def.Invoke = func(ctx context.Context, value reflect.Value) core.ResultWriter {
 		input := value.Interface().(I)
 		return handler(ctx, input)
