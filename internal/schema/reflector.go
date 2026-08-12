@@ -96,7 +96,7 @@ func (r *Registry) schemaFor(t reflect.Type, stack map[reflect.Type]bool) (*oas3
 		}
 		return &s, nil
 	case reflect.Map:
-		if t.Key().Kind() != reflect.String {
+		if !supportsJSONMapKey(t.Key()) {
 			return nil, fmt.Errorf("unsupported map key type %s in %s", t.Key(), t)
 		}
 		value, err := r.schemaFor(t.Elem(), stack)
@@ -125,6 +125,17 @@ func (r *Registry) schemaFor(t reflect.Type, stack map[reflect.Type]bool) (*oas3
 		return r.structSchema(t, stack)
 	default:
 		return nil, fmt.Errorf("unsupported Go type %s", t)
+	}
+}
+
+func supportsJSONMapKey(t reflect.Type) bool {
+	switch t.Kind() {
+	case reflect.String,
+		reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
+		reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
+		return true
+	default:
+		return t.Implements(textMarshalerType)
 	}
 }
 
