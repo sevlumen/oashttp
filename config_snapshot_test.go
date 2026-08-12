@@ -57,3 +57,46 @@ func TestNewPreservesNilConfigContainers(t *testing.T) {
 		t.Fatalf("SecurityProviders = %#v, want nil", app.config.SecurityProviders)
 	}
 }
+
+func TestNewDetachesConfigContainersBeforeConcurrentBuild(t *testing.T) {
+	providerA := &snapshotSecurityProvider{scheme: SecurityScheme{Type: "apiKey", Name: "X-API-Key", In: "header"}}
+	providerB := &snapshotSecurityProvider{scheme: SecurityScheme{Type: "apiKey", Name: "X-Other-Key", In: "header"}}
+
+	servers := []Server{{URL: "https://original.example"}}
+	providers := map[string]SecurityProvider{"apiKey": providerA}
+	app := New(Config{
+		Info:              Info{Title: "snapshot test", Version: "1"},
+		Servers:           servers,
+		SecurityProviders: providers,
+	})
+
+	MapGet(app.Group("/v1"), "/status", func(context.Context, struct{}) Result[struct{}] {
+		return OK(struct{}{})
+	}).
+		WithOperationID("snapshotStatus").
+		RequireSecurity("apiKey").
+		Produces(http.StatusOK)
+
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		for i := 0; i < 1000; i++ {
+			servers[0].URL = "https://changed.example"
+			providers["apiKey"] = providerB
+			delete(providers, "apiKey")
+			providers["apiKey"] = providerA
+		}
+	}()
+
+	if _, err := app.Build(); err != nil {
+		t.Fatal(err)
+	}
+	<-done
+
+	if got := app.config.Servers[0].URL; got != "https://original.example" {
+		t.Fatalf("app server URL = %q, want original snapshot", got)
+	}
+	if got := app.config.SecurityProviders["apiKey"]; got != providerA {
+		t.Fatalf("app provider changed after New(): %#v", got)
+	}
+}
