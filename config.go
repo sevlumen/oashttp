@@ -58,5 +58,25 @@ func normalizeConfig(cfg Config) runtimeConfig {
 	if cfg.FailureFormatter == nil {
 		cfg.FailureFormatter = ProblemDetailsFormatter{}
 	}
+	cfg.Servers = cloneServers(cfg.Servers)
+	cfg.SecurityProviders = cloneSecurityProviders(cfg.SecurityProviders)
 	return runtimeConfig{Config: cfg, DisallowUnknownJSONFields: !cfg.AllowUnknownJSONFields}
+}
+
+func cloneServers(servers []Server) []Server {
+	if servers == nil {
+		return nil
+	}
+	return append([]Server(nil), servers...)
+}
+
+func cloneSecurityProviders(providers map[string]SecurityProvider) map[string]SecurityProvider {
+	if providers == nil {
+		return nil
+	}
+	cloned := make(map[string]SecurityProvider, len(providers))
+	for name, provider := range providers {
+		cloned[name] = provider
+	}
+	return cloned
 }
