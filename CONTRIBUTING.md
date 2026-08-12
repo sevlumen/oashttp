@@ -34,3 +34,15 @@ The root `oashttp` package owns the public API and final composition. Internal e
 ## Compatibility
 
 Public identifiers in the root `oashttp` package are covered by the major-version-2 compatibility promise. Prefer additive changes. Breaking changes require a new major module path.
+
+## Release process
+
+A release is published only from source that is already merged to `main` and has passed the normal `main` CI run.
+
+1. Make `version.go`, `README.md`, and `CHANGELOG.md` agree on the release version.
+2. Merge the release-ready source to `main` and require the push-triggered `main` CI run to pass.
+3. Create `publish/vX.Y.Z` from that exact verified `main` commit without adding release-only commits.
+4. The release workflow verifies the publish branch still equals `main`, verifies `version.go`, reruns the release quality gates, creates tag `vX.Y.Z`, and publishes the GitHub Release.
+5. Never reuse, move, or force-update an existing release tag.
+
+The `publish/vX.Y.Z` branch is a release control ref, not a development branch. If any verification step fails, fix the source through the normal PR flow and create a new publish ref from the corrected `main` commit.
