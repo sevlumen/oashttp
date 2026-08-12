@@ -67,11 +67,11 @@ type jsonNamedEmbedded struct {
 }
 
 type jsonLeft struct {
-	Conflict string `json:"conflict"`
+	Conflict string
 }
 
 type jsonRight struct {
-	Conflict string `json:"conflict"`
+	Conflict string
 }
 
 type jsonTaggedWinner struct {
