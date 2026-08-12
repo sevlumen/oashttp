@@ -125,6 +125,19 @@ type jsonOptionsOnlyAmbiguous struct {
 	jsonOptionsOnlyRight
 }
 
+type jsonHiddenInvalidLeft struct {
+	Conflict chan int `validate:"unknown"`
+}
+
+type jsonHiddenInvalidRight struct {
+	Conflict string
+}
+
+type jsonHiddenInvalidFixture struct {
+	jsonHiddenInvalidLeft
+	jsonHiddenInvalidRight
+}
+
 func TestSchemaFieldSelectionMatchesEncodingJSON(t *testing.T) {
 	pointer := &JSONEmbeddedPointer{PointerValue: "p"}
 	cases := []any{
@@ -162,6 +175,21 @@ func TestSchemaFieldSelectionMatchesEncodingJSON(t *testing.T) {
 				t.Fatalf("schema keys=%v encoding/json keys=%v", got, want)
 			}
 		})
+	}
+}
+
+func TestHiddenAmbiguousFieldsDoNotFailSchemaGeneration(t *testing.T) {
+	registry := NewRegistry()
+	if _, err := registry.Ref(reflect.TypeOf(jsonHiddenInvalidFixture{})); err != nil {
+		t.Fatalf("hidden ambiguous field affected schema generation: %v", err)
+	}
+	component := registry.Components()["jsonHiddenInvalidFixture"]
+	if component == nil {
+		t.Fatal("missing jsonHiddenInvalidFixture component")
+	}
+	properties := (*component)["properties"].(map[string]any)
+	if _, ok := properties["Conflict"]; ok {
+		t.Fatalf("ambiguous hidden property leaked: %#v", properties)
 	}
 }
 
