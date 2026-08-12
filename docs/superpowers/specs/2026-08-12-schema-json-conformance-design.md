@@ -22,7 +22,7 @@ The field resolver must follow these v1-compatible rules:
 - an anonymous field with an explicit JSON name is a normal named field and is not promoted;
 - unexported non-embedded fields are ignored;
 - an unexported anonymous struct or `*struct` may still be traversed because it can expose exported members;
-- invalid explicit JSON tag names fall back to the Go field name rather than becoming arbitrary schema property names;
+- an invalid explicit JSON tag name behaves as no explicit JSON name: ordinary fields fall back to the Go field name, while anonymous structs retain normal promotion behavior;
 - at a given JSON name, the shallowest depth wins;
 - if multiple candidates exist at that shallowest depth and at least one is explicitly JSON-named, only explicitly named candidates remain;
 - exactly one remaining candidate wins; otherwise the name is ambiguous and omitted without error.
@@ -45,9 +45,9 @@ Map schemas currently accept only string keys even though `encoding/json` also a
 2. Make `structSchema` consume resolved JSON fields instead of flattening anonymous structs itself.
 3. Match embedded struct and embedded pointer-to-struct field selection rules.
 4. Match shallowest-depth/tagged-field/ambiguity dominance rules.
-5. Validate JSON tag names with the same accepted-name character class as default `encoding/json`; invalid names fall back to the Go field name.
+5. Validate JSON tag names with the same accepted-name character class as default `encoding/json`; invalid names behave as if no explicit JSON name was supplied.
 6. Recognize `json:",string"` for bool, string, integer, unsigned integer, `uintptr`, float, and pointers to those primitive kinds.
-7. Make schema wire type `string` when the v1 `string` option applies.
+7. Make schema wire shape string-based when the v1 `string` option applies, while preserving pointer nullability.
 8. Allow map keys whose kinds are string, signed integer, unsigned integer/`uintptr`, or whose key type itself implements `encoding.TextMarshaler`.
 9. Add conformance tests that characterize behavior through `encoding/json`, not only through an implementation-shaped unit test.
 10. Preserve zero runtime dependencies and all current public API.
@@ -96,11 +96,11 @@ Use an unexported representation similar to:
 
 ```go
 type jsonField struct {
-    Field   reflect.StructField
-    Index   []int
-    Name    string
-    Tagged  bool
-    Quoted  bool
+    Field  reflect.StructField
+    Index  []int
+    Name   string
+    Tagged bool
+    Quoted bool
 }
 ```
 
@@ -165,17 +165,19 @@ Legacy `encoding/json` stringification applies when the field's top-level type i
 
 It does not recursively stringify composite types.
 
-For a quoted field, the generated field schema must describe the JSON wire value as a string. The implementation should perform the wire-shape adjustment after the underlying Go schema is known, while preventing incompatible numeric/boolean JSON-Schema keywords from being left on a string schema.
+For a quoted field, the generated field schema must describe the JSON wire value rather than the underlying Go primitive. The implementation performs the wire-shape adjustment after the underlying Go schema is known and prevents incompatible numeric/boolean JSON-Schema keywords from remaining on the string representation.
 
 Rules for this batch:
 
-- resulting wire `type` is `string`;
-- pointer nullability remains representable: a quoted pointer field accepts JSON `null` as well as the quoted string representation;
-- type-specific numeric formats such as `int32`, `int64`, `float`, or `double` are removed from the wire string schema unless an explicit field `format` annotation subsequently sets a string format;
+- a non-pointer quoted primitive becomes `{"type":"string"}` plus compatible annotations;
+- a pointer to a quoted primitive preserves JSON nullability and is represented as a string-or-null union, equivalent to `oneOf: [{"type":"string"}, {"type":"null"}]`;
+- type-specific numeric formats such as `int32`, `int64`, `float`, or `double` are removed from the wire string schema unless an explicit field `format` annotation sets a string format;
 - numeric bounds (`minimum`, `maximum`) are omitted because they do not constrain JSON strings correctly;
-- validation-derived `enum` values are converted to their wire-string lexical representation when this can be done unambiguously for the supported primitive type; otherwise the enum is omitted rather than emitting an incorrect contract;
+- validation-derived enum values are converted deterministically to wire strings by taking the normal JSON lexical form of the underlying primitive. Conceptually, `wireString(v) = string(json.Marshal(v))`: integer `1` becomes schema string value `"1"`, boolean `true` becomes `"true"`, and underlying Go string `foo` becomes a schema string whose content is `"foo"` including the JSON string quotes;
+- if a validation-derived enum value cannot be converted through the supported primitive path, omit that enum rather than emit an incorrect contract;
 - `description` remains valid and is preserved;
-- examples must describe the wire string representation when an `example` tag is present.
+- an explicit `example` tag is converted to the same wire-string lexical form for a quoted primitive;
+- a quoted pointer uses the same lexical conversion for its non-null branch.
 
 This changes documentation shape only; decoding and validation execution remain unchanged.
 
@@ -238,7 +240,7 @@ Add table-driven fixtures covering at least:
 - one tagged and one untagged equal-depth field => tagged wins;
 - two tagged equal-depth fields with the same JSON name => omitted;
 - `json:"-"` exclusion;
-- invalid JSON tag name falling back to the Go field name;
+- invalid JSON tag name falling back to normal field-name/promotion behavior;
 - options-only JSON tag not counting as explicitly named for dominance.
 
 For populated fixtures, use `encoding/json.Marshal` as an oracle for observable object-member selection and compare its keys with generated schema property keys where possible.
@@ -252,10 +254,10 @@ Characterize JSON output and schema for:
 - float64;
 - bool;
 - string;
-- pointer to primitive;
+- pointer to primitive, both non-null wire string and nullable schema branch;
 - composite field with `,string` showing that the option does not recursively change an array/slice/map/struct schema.
 
-Include at least one validation-tag case to prove incompatible numeric keywords are not left on a wire-string schema.
+Include at least one validation-tag case to prove incompatible numeric keywords are not left on a wire-string schema, plus enum/example cases to verify deterministic lexical conversion.
 
 ### Map-key matrix
 
@@ -312,7 +314,7 @@ No tag is created or moved until those gates pass.
 The work is complete when:
 
 - generated schema property selection matches default `encoding/json` for the specified embedded/dominance fixtures;
-- `json:",string"` produces a correct string wire schema for supported primitive fields without invalid numeric/boolean schema keywords;
+- `json:",string"` produces the correct string-or-null wire schema for supported primitive fields without invalid numeric/boolean schema keywords;
 - JSON-compatible integer and `TextMarshaler` map keys compile successfully while unsupported keys still fail;
 - hidden/ambiguous fields do not leak into properties or required lists and do not trigger schema errors;
 - no exported oashttp API or runtime dependency is added;
