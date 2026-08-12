@@ -40,8 +40,8 @@ extract_version() {
 }
 
 baseline_source="$(git show "${baseline}:version.go")"
-baseline_count="$(printf '%s\n' "$baseline_source" | grep -Ec '^const Version = "[0-9]+\.[0-9]+\.[0-9]+"$')"
-current_count="$(grep -Ec '^const Version = "[0-9]+\.[0-9]+\.[0-9]+"$' version.go)"
+baseline_count="$(printf '%s\n' "$baseline_source" | grep -Ec '^const Version = "[0-9]+\.[0-9]+\.[0-9]+"$' || true)"
+current_count="$(grep -Ec '^const Version = "[0-9]+\.[0-9]+\.[0-9]+"$' version.go || true)"
 if [ "$baseline_count" -ne 1 ] || [ "$current_count" -ne 1 ]; then
   echo 'version.go must contain exactly one const Version = "X.Y.Z" declaration' >&2
   exit 1
