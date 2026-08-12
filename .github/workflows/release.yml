@@ -121,20 +121,22 @@ jobs:
           go install golang.org/x/vuln/cmd/govulncheck@v1.6.0
           govulncheck ./...
 
-      - name: Create release tag
-        shell: bash
-        run: |
-          set -euo pipefail
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git tag -a "$RELEASE_TAG" -m "oashttp ${RELEASE_TAG}"
-          git push origin "refs/tags/${RELEASE_TAG}"
-
       - name: Publish GitHub Release
         shell: bash
         run: |
+          set -euo pipefail
           gh release create "$RELEASE_TAG" \
             --repo "$GITHUB_REPOSITORY" \
-            --verify-tag \
+            --target "$GITHUB_SHA" \
             --title "oashttp ${RELEASE_TAG}" \
-            --generate-notes
+            --generate-notes \
+            --fail-on-no-commits
+
+      - name: Verify published release
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote --tags origin "refs/tags/${RELEASE_TAG}" | awk '{print $1}')" = "$GITHUB_SHA"
+          test "$(gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json tagName --jq '.tagName')" = "$RELEASE_TAG"
+          test "$(gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json isDraft --jq '.isDraft')" = "false"
+          test "$(gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json isPrerelease --jq '.isPrerelease')" = "false"
