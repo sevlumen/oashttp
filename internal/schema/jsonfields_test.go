@@ -164,3 +164,33 @@ func TestSchemaFieldSelectionMatchesEncodingJSON(t *testing.T) {
 		})
 	}
 }
+
+func TestParseJSONTagMetadata(t *testing.T) {
+	typ := reflect.TypeOf(struct {
+		Plain   string
+		Named   int    `json:"named,omitempty,string"`
+		Options int    `json:",omitempty,string"`
+		Skip    string `json:"-"`
+		Dash    string `json:"-,"`
+		Invalid string `json:"bad\\name"`
+		Spaced  string `json:"space name"`
+	}{})
+
+	cases := []struct {
+		field int
+		want  jsonTag
+	}{
+		{0, jsonTag{}},
+		{1, jsonTag{Name: "named", HasName: true, OmitEmpty: true, String: true}},
+		{2, jsonTag{OmitEmpty: true, String: true}},
+		{3, jsonTag{Skip: true}},
+		{4, jsonTag{Name: "-", HasName: true}},
+		{5, jsonTag{}},
+		{6, jsonTag{Name: "space name", HasName: true}},
+	}
+	for _, tc := range cases {
+		if got := parseJSONTag(typ.Field(tc.field)); !reflect.DeepEqual(got, tc.want) {
+			t.Fatalf("field %d tag=%+v want=%+v", tc.field, got, tc.want)
+		}
+	}
+}
