@@ -68,8 +68,7 @@ func TestQuotedJSONFieldsDescribeWireStrings(t *testing.T) {
 	}
 
 	custom := properties["custom"].(map[string]any)
-	assertStringSchema(t, "custom", custom)
-	if custom["format"] != "digits" {
+	if custom["type"] != "string" || custom["format"] != "digits" {
 		t.Fatalf("custom=%#v", custom)
 	}
 
