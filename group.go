@@ -24,10 +24,13 @@ func (g *Group) Group(prefix string) *Group {
 	if err != nil {
 		panic(err)
 	}
+	g.app.mu.Lock()
+	middlewares := append([]Middleware(nil), g.middlewares...)
+	g.app.mu.Unlock()
 	return &Group{
 		app:         g.app,
 		prefix:      joinPaths(g.prefix, normalized),
-		middlewares: append([]Middleware(nil), g.middlewares...),
+		middlewares: middlewares,
 	}
 }
 
