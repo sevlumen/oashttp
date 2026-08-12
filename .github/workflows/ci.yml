@@ -79,13 +79,11 @@ jobs:
         with:
           go-version: "1.26.x"
           cache: false
-      - name: Characterize additive release compatibility
+      - name: Characterize incompatible release compatibility
         shell: bash
         run: |
           set -euo pipefail
-          bash scripts/check-public-api.sh
-          if bash scripts/check-public-api.sh v2.0.3; then
-            echo "patch release unexpectedly accepted additive API" >&2
+          if bash scripts/check-public-api.sh v2.1.0; then
+            echo "minor release unexpectedly accepted incompatible API" >&2
             exit 1
           fi
-          bash scripts/check-public-api.sh v2.1.0
