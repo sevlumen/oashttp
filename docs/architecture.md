@@ -94,7 +94,7 @@ Owns resolution and serialization of framework failures.
 
 ### `internal/schema`
 
-Owns Go-type reflection and reusable OpenAPI schema registration. Validation-derived schema constraints consume the normalized rules from `internal/validationrule` so generated contracts match runtime validation semantics.
+Owns Go-type reflection and reusable OpenAPI schema registration. Validation-derived schema constraints consume the normalized rules from `internal/validationrule` so generated contracts match runtime validation semantics. JSON-facing field selection and primitive wire-shape rules track default `encoding/json` v1 behavior and are resolved before field-level schema and validation annotations are applied, so hidden or ambiguous JSON fields cannot leak into the generated contract.
 
 ### `internal/oas31`
 
