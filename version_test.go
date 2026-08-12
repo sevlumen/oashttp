@@ -3,7 +3,7 @@ package oashttp
 import "testing"
 
 func TestStableVersion(t *testing.T) {
-	if Version != "2.0.2" {
+	if Version != "2.0.3" {
 		t.Fatalf("Version=%q", Version)
 	}
 }
