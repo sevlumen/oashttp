@@ -12,7 +12,7 @@ type quotedSchemaFixture struct {
 	Ratio   float64 `json:"ratio,string"`
 	Text    string  `json:"text,string" validate:"oneof=admin user" example:"admin"`
 	Maybe   *int64  `json:"maybe,string"`
-	Address uintptr `json:"address,string"`
+	Address uintptr `json:"address,string" example:"42"`
 	Custom  int64   `json:"custom,string" format:"digits"`
 	Plain   []int   `json:"plain,string"`
 }
@@ -70,6 +70,9 @@ func TestQuotedJSONFieldsDescribeWireStrings(t *testing.T) {
 
 	address := properties["address"].(map[string]any)
 	assertStringSchema(t, "address", address)
+	if got := address["example"]; got != wireLexical(t, uintptr(42)) {
+		t.Fatalf("address example=%#v", got)
+	}
 
 	custom := properties["custom"].(map[string]any)
 	if custom["type"] != "string" || custom["format"] != "digits" {
