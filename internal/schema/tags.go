@@ -1,6 +1,7 @@
 package schema
 
 import (
+	"encoding/json"
 	"fmt"
 	"reflect"
 	"strconv"
@@ -52,6 +53,69 @@ func applyFieldTags(schema map[string]any, field reflect.StructField, rules []va
 		}
 	}
 	return nil
+}
+
+func applyQuotedJSONSchema(schema map[string]any, field reflect.StructField) error {
+	var description any
+	if value, ok := schema["description"]; ok {
+		description = value
+	}
+
+	var example any
+	if value, ok := schema["example"]; ok {
+		lexical, err := quotedJSONLexical(value)
+		if err != nil {
+			return fmt.Errorf("quoted example: %w", err)
+		}
+		example = lexical
+	}
+
+	var enum []any
+	if values, ok := schema["enum"].([]any); ok {
+		enum = make([]any, 0, len(values))
+		for _, value := range values {
+			lexical, err := quotedJSONLexical(value)
+			if err != nil {
+				return fmt.Errorf("quoted enum: %w", err)
+			}
+			enum = append(enum, lexical)
+		}
+	}
+
+	for key := range schema {
+		delete(schema, key)
+	}
+
+	stringSchema := map[string]any{"type": "string"}
+	if format := field.Tag.Get("format"); format != "" {
+		stringSchema["format"] = format
+	}
+	if enum != nil {
+		stringSchema["enum"] = enum
+	}
+
+	if field.Type.Kind() == reflect.Pointer {
+		schema["oneOf"] = []any{stringSchema, map[string]any{"type": "null"}}
+	} else {
+		for key, value := range stringSchema {
+			schema[key] = value
+		}
+	}
+	if description != nil {
+		schema["description"] = description
+	}
+	if example != nil {
+		schema["example"] = example
+	}
+	return nil
+}
+
+func quotedJSONLexical(value any) (string, error) {
+	data, err := json.Marshal(value)
+	if err != nil {
+		return "", err
+	}
+	return string(data), nil
 }
 
 func applyLengthOrNumberBound(schema map[string]any, t reflect.Type, n int, min bool) {
