@@ -114,7 +114,7 @@ Owns HTTP handlers for serving generated OpenAPI documents and Swagger UI.
 6. HTTP protocol facts shared by runtime and generated contracts must originate from the narrowest shared internal boundary, not duplicated helper logic.
 7. Binding, validation, security, failure, route, schema, and OpenAPI packages must not import the root `oashttp` package.
 8. Configuration mutation is supported only before `Build`; synchronization must make concurrent configuration calls race-free and preserve the freeze boundary.
-9. Existing typed and raw behavior must remain source-compatible within major version 2.
+9. Existing typed and raw behavior must remain source-compatible within major version 2. PR CI machine-enforces root-facade source compatibility against the latest stable v2 release, and the release workflow additionally validates the proposed SemVer; behavioral compatibility still depends on tests and review.
 10. Runtime dependencies remain standard-library-only unless a future compatibility decision explicitly changes that policy.
 11. No production package may depend on `examples/` or test-only code.
 
@@ -124,4 +124,4 @@ When adding a feature, place the contract at the narrowest stable boundary and k
 
 Avoid creating new packages solely to reduce file length. Split files inside an existing package when responsibilities are related and package boundaries would add dependency churn without a meaningful abstraction. A new dependency-leaf package is appropriate when one protocol or semantic fact must be consumed consistently by otherwise independent subsystems.
 
-Any architecture refactor must preserve the existing quality gates: Go-version matrix, formatting, module consistency, vet, repeated tests, race detector, coverage floor, OpenAPI golden verification, fuzzing, benchmarks, and vulnerability scanning.
+Any architecture refactor must preserve the existing quality gates: Go-version matrix, formatting, module consistency, vet, repeated tests, race detector, coverage floor, OpenAPI golden verification, fuzzing, benchmarks, vulnerability scanning, and public API compatibility checks.
