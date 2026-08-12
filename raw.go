@@ -31,7 +31,7 @@ func MapHandler(group *Group, method, path string, handler http.Handler) *RawOpe
 		RawHandler: handler,
 		Responses:  map[int]internaloperation.ResponseSpec{},
 	}
-	group.app.registerOperation(group, def)
+	group.app.registerGroupOperation(group, def)
 	return &RawOperationBuilder{app: group.app, definition: def}
 }
 
