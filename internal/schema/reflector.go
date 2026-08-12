@@ -154,6 +154,11 @@ func (r *Registry) structSchema(t reflect.Type, stack map[reflect.Type]bool) (*o
 		if err := applyFieldTags(schemaMap, field, rules); err != nil {
 			return nil, fmt.Errorf("field %s.%s: %w", t, field.Name, err)
 		}
+		if selected.Quoted {
+			if err := applyQuotedJSONSchema(schemaMap, field); err != nil {
+				return nil, fmt.Errorf("field %s.%s: %w", t, field.Name, err)
+			}
+		}
 		properties[selected.Name] = schemaMap
 		if hasRuleKind(rules, validationrule.Required) {
 			required = append(required, selected.Name)
