@@ -121,6 +121,10 @@ jobs:
           go install golang.org/x/vuln/cmd/govulncheck@v1.6.0
           govulncheck ./...
 
+      - name: Verify public API release compatibility
+        shell: bash
+        run: bash scripts/check-public-api.sh "$RELEASE_TAG"
+
       - name: Publish GitHub Release
         shell: bash
         run: |
