@@ -78,6 +78,9 @@ func (r *Registry) schemaFor(t reflect.Type, stack map[reflect.Type]bool) (*oas3
 	case reflect.Uint64:
 		s := oas31.Schema{"type": "integer", "format": "int64", "minimum": 0}
 		return &s, nil
+	case reflect.Uintptr:
+		s := oas31.Schema{"type": "integer", "minimum": 0}
+		return &s, nil
 	case reflect.Float32:
 		s := oas31.Schema{"type": "number", "format": "float"}
 		return &s, nil
