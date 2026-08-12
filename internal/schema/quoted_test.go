@@ -7,13 +7,14 @@ import (
 )
 
 type quotedSchemaFixture struct {
-	Count  int64   `json:"count,string" validate:"gte=1,lte=9,oneof=1 2" example:"2"`
-	Active bool    `json:"active,string" validate:"oneof=true false"`
-	Ratio  float64 `json:"ratio,string"`
-	Text   string  `json:"text,string" validate:"oneof=admin user" example:"admin"`
-	Maybe  *int64  `json:"maybe,string"`
-	Custom int64   `json:"custom,string" format:"digits"`
-	Plain  []int   `json:"plain,string"`
+	Count   int64   `json:"count,string" validate:"gte=1,lte=9,oneof=1 2" example:"2"`
+	Active  bool    `json:"active,string" validate:"oneof=true false"`
+	Ratio   float64 `json:"ratio,string"`
+	Text    string  `json:"text,string" validate:"oneof=admin user" example:"admin"`
+	Maybe   *int64  `json:"maybe,string"`
+	Address uintptr `json:"address,string"`
+	Custom  int64   `json:"custom,string" format:"digits"`
+	Plain   []int   `json:"plain,string"`
 }
 
 func TestQuotedJSONFieldsDescribeWireStrings(t *testing.T) {
@@ -66,6 +67,9 @@ func TestQuotedJSONFieldsDescribeWireStrings(t *testing.T) {
 	if !ok || nullBranch["type"] != "null" {
 		t.Fatalf("maybe null branch=%#v", branches[1])
 	}
+
+	address := properties["address"].(map[string]any)
+	assertStringSchema(t, "address", address)
 
 	custom := properties["custom"].(map[string]any)
 	if custom["type"] != "string" || custom["format"] != "digits" {
