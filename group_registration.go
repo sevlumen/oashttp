@@ -8,6 +8,9 @@ func (a *App) registerGroupOperation(group *Group, def *internaloperation.Defini
 	if a.frozen {
 		panic(ErrFrozen)
 	}
-	def.Middlewares = append([]Middleware(nil), group.middlewares...)
+	def.Middlewares = nil
+	for _, middleware := range group.middlewares {
+		def.Middlewares = append(def.Middlewares, middleware)
+	}
 	a.operations = append(a.operations, def)
 }
