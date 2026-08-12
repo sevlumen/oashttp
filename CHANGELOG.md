@@ -4,7 +4,7 @@ All notable changes to this project are documented here. The project follows Sem
 
 ## [Unreleased]
 
-## [2.0.1] - 2026-08-11
+## [2.0.1] - 2026-08-12
 
 ### Added
 
@@ -25,6 +25,13 @@ All notable changes to this project are documented here. The project follows Sem
 - Authenticated principals remain visible to scoped middleware and can also be observed by application-wide middleware after `next.ServeHTTP(...)` returns.
 - `SECURITY.md` and `SUPPORT.md` now describe v2 as the supported feature line and v1 as security-fixes-only.
 - Streaming and custom-representation endpoints can remain inside `oashttp` through `MapHandler` instead of requiring a separate external router.
+- Internal operation compilation and OpenAPI build responsibilities were separated into focused units without changing the public API or generated OpenAPI behavior.
+- CI checkout was updated to `actions/checkout@v6` while preserving the existing Go matrix and quality gates.
+
+### Fixed
+
+- Group inheritance and operation registration now snapshot scoped middleware under the application configuration lock, removing setup-time read/write races between `Group.Use`, child-group creation, and typed/raw route registration.
+- `New(Config)` now snapshots caller-owned `Servers` and `SecurityProviders` containers, so later caller mutation cannot change application configuration or race with `Build()` through shared slice/map storage.
 
 ### Compatibility
 
