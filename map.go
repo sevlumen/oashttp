@@ -47,6 +47,6 @@ func mapOperation[I any, O any](group *Group, method, path string, handler func(
 		input := value.Interface().(I)
 		return handler(ctx, input)
 	}
-	group.app.registerOperation(group, def)
+	group.app.registerGroupOperation(group, def)
 	return &OperationBuilder[O]{app: group.app, definition: def}
 }
