@@ -4,7 +4,7 @@
 
 `oashttp` is a zero-third-party-runtime-dependency Go library for typed `net/http` JSON endpoints, compiled request binding and validation, RFC 9457-style Problem Details, security integration, panic recovery, scoped middleware, raw-handler escape hatches, and OpenAPI 3.1 generation.
 
-**Stable release:** `v2.0.1`
+**Stable release:** `v2.0.2`
 
 **Module:** `github.com/sevlumen/oashttp/v2`
 
@@ -13,8 +13,20 @@
 ## Install
 
 ```bash
-go get github.com/sevlumen/oashttp/v2@v2.0.1
+go get github.com/sevlumen/oashttp/v2@v2.0.2
 ```
+
+## What's new in v2.0.2
+
+Version 2.0.2 is a correctness-focused foundation release. It keeps the public API unchanged while tightening parity between runtime behavior and generated OpenAPI:
+
+- runtime validation and schema generation now share one normalized validation-rule parser;
+- map `min`, `max`, and `len` rules generate object-property constraints instead of array keywords;
+- numeric `len` and scalar `oneof` rules generate type-correct schema constraints;
+- non-scalar `oneof` declarations fail during compilation instead of producing an incoherent contract;
+- runtime responses and OpenAPI generation now share one HTTP body-status rule, including correct bodyless handling for informational responses, `204`, `205`, and `304`.
+
+No third-party runtime dependency or new public API is introduced by this patch.
 
 ## What's new in v2.0.1
 
@@ -33,7 +45,7 @@ OAuth2 flows and first-class scope requirements are not part of this patch; the 
 Version 2 uses the canonical module path `github.com/sevlumen/oashttp/v2`. Replace imports from `github.com/quang020102/go-osm`, then run:
 
 ```bash
-go get github.com/sevlumen/oashttp/v2@v2.0.1
+go get github.com/sevlumen/oashttp/v2@v2.0.2
 go mod tidy
 ```
 

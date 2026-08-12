@@ -4,6 +4,27 @@ All notable changes to this project are documented here. The project follows Sem
 
 ## [Unreleased]
 
+## [2.0.2] - 2026-08-12
+
+### Changed
+
+- Runtime validation and OpenAPI schema generation now consume one shared normalized validation-rule parser, eliminating duplicated tag semantics between the two subsystems.
+- Response body/content eligibility is now defined once in a dependency-light HTTP semantics package and shared by runtime response writing and OpenAPI compilation.
+
+### Fixed
+
+- Validation `min`, `max`, and `len` rules on maps now generate `minProperties` / `maxProperties` instead of array-only `minItems` / `maxItems` keywords.
+- Numeric `len=N` now generates exact numeric bounds (`minimum: N`, `maximum: N`) matching runtime validation semantics.
+- Scalar `oneof` validation now generates type-correct OpenAPI enum values for strings, booleans, signed integers, unsigned integers, and floating-point values instead of always emitting strings; non-scalar `oneof` declarations are rejected during compilation.
+- Informational `1xx`, `204 No Content`, `205 Reset Content`, and `304 Not Modified` responses are consistently treated as bodyless by runtime result writing and OpenAPI response generation.
+
+### Compatibility
+
+- No public API identifiers or signatures changed.
+- Go 1.22 remains the minimum supported version.
+- No third-party runtime dependencies were added.
+- Existing OpenAPI output remains unchanged for operations not affected by the corrected validation or response-body semantics.
+
 ## [2.0.1] - 2026-08-12
 
 ### Added

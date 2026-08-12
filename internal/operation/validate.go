@@ -3,10 +3,10 @@ package operation
 import (
 	"fmt"
 	"mime"
-	"net/http"
 	"strings"
 
 	"github.com/sevlumen/oashttp/v2/internal/binding"
+	"github.com/sevlumen/oashttp/v2/internal/httpsem"
 	"github.com/sevlumen/oashttp/v2/internal/route"
 	"github.com/sevlumen/oashttp/v2/internal/validation"
 )
@@ -31,7 +31,7 @@ func validateDefinition(def *Definition, opts Options) error {
 		if status < 100 || status > 599 {
 			return fmt.Errorf("%s %s: invalid response status %d", def.Method, def.UserRoute, status)
 		}
-		if spec.Kind == ResponseCustom && statusAllowsResponseBody(status) {
+		if spec.Kind == ResponseCustom && httpsem.StatusAllowsBody(status) {
 			if spec.ModelType == nil {
 				return fmt.Errorf("%s %s: custom response %d requires a non-nil model", def.Method, def.UserRoute, status)
 			}
@@ -71,8 +71,4 @@ func compileRequestPlans(def *Definition, pattern route.Pattern, opts Options) (
 		}
 	}
 	return bindPlan, validationPlan, nil
-}
-
-func statusAllowsResponseBody(status int) bool {
-	return status >= 200 && status != http.StatusNoContent && status != http.StatusNotModified
 }

@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/sevlumen/oashttp/v2/internal/binding"
+	"github.com/sevlumen/oashttp/v2/internal/httpsem"
 	"github.com/sevlumen/oashttp/v2/internal/oas31"
 	"github.com/sevlumen/oashttp/v2/internal/route"
 	"github.com/sevlumen/oashttp/v2/internal/schema"
@@ -37,7 +38,7 @@ func compileOAS(def *Definition, plan *binding.Plan, pattern route.Pattern, regi
 		description := responseDescription(status, spec.Description)
 		response := oas31.Response{Description: description}
 		var err error
-		if statusAllowsResponseBody(status) {
+		if httpsem.StatusAllowsBody(status) {
 			switch spec.Kind {
 			case ResponseProblem:
 				response, err = documentedResponse(registry, description, failureContentType, failureModelType)

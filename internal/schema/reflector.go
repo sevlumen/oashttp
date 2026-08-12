@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/sevlumen/oashttp/v2/internal/oas31"
+	"github.com/sevlumen/oashttp/v2/internal/validationrule"
 )
 
 type SchemaProvider interface{ JSONSchema() map[string]any }
@@ -143,7 +144,7 @@ func (r *Registry) structSchema(t reflect.Type, stack map[reflect.Type]bool) (*o
 		if field.PkgPath != "" {
 			continue
 		}
-		jsonName, omit, skip := parseJSONTag(field)
+		jsonName, _, skip := parseJSONTag(field)
 		if skip {
 			continue
 		}
@@ -162,14 +163,20 @@ func (r *Registry) structSchema(t reflect.Type, stack map[reflect.Type]bool) (*o
 			}
 			continue
 		}
+		rules, err := validationrule.Parse(field.Type, field.Tag.Get("validate"))
+		if err != nil {
+			return nil, fmt.Errorf("field %s.%s: %w", t, field.Name, err)
+		}
 		child, err := r.schemaFor(field.Type, next)
 		if err != nil {
 			return nil, fmt.Errorf("field %s.%s: %w", t, field.Name, err)
 		}
 		schemaMap := map[string]any(*child)
-		applyFieldTags(schemaMap, field)
+		if err := applyFieldTags(schemaMap, field, rules); err != nil {
+			return nil, fmt.Errorf("field %s.%s: %w", t, field.Name, err)
+		}
 		properties[jsonName] = schemaMap
-		if hasRule(field.Tag.Get("validate"), "required") || (!omit && field.Type.Kind() != reflect.Pointer && field.Tag.Get("validate") != "") && hasRule(field.Tag.Get("validate"), "required") {
+		if hasRuleKind(rules, validationrule.Required) {
 			required = append(required, jsonName)
 		}
 	}

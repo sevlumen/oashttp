@@ -152,3 +152,63 @@ func TestRegistryHandlesNilTypeAndPrimitiveNumbers(t *testing.T) {
 		}
 	}
 }
+
+type validationSchemaParityFixture struct {
+	Labels map[string]string `json:"labels" validate:"min=1,max=3"`
+	Exact  int               `json:"exact" validate:"len=5"`
+	Level  int               `json:"level" validate:"oneof=1 2 3"`
+	Count  uint              `json:"count" validate:"oneof=4 8"`
+	Ratio  float64           `json:"ratio" validate:"oneof=0.5 1.5"`
+	Active bool              `json:"active" validate:"oneof=true false"`
+	Role   string            `json:"role" validate:"oneof=admin user"`
+}
+
+func TestRegistryValidationSchemaParity(t *testing.T) {
+	registry := NewRegistry()
+	if _, err := registry.Ref(reflect.TypeOf(validationSchemaParityFixture{})); err != nil {
+		t.Fatal(err)
+	}
+	component := registry.Components()["validationSchemaParityFixture"]
+	if component == nil {
+		t.Fatal("missing validationSchemaParityFixture component")
+	}
+	properties := (*component)["properties"].(map[string]any)
+
+	labels := properties["labels"].(map[string]any)
+	if labels["minProperties"] != 1 || labels["maxProperties"] != 3 {
+		t.Fatalf("labels=%#v", labels)
+	}
+	if _, ok := labels["minItems"]; ok {
+		t.Fatalf("map schema must not use minItems: %#v", labels)
+	}
+
+	exact := properties["exact"].(map[string]any)
+	if exact["minimum"] != float64(5) || exact["maximum"] != float64(5) {
+		t.Fatalf("exact=%#v", exact)
+	}
+	if _, ok := exact["minItems"]; ok {
+		t.Fatalf("numeric schema must not use minItems: %#v", exact)
+	}
+
+	assertEnumTypes(t, properties["level"].(map[string]any)["enum"], reflect.Int64)
+	assertEnumTypes(t, properties["count"].(map[string]any)["enum"], reflect.Uint64)
+	assertEnumTypes(t, properties["ratio"].(map[string]any)["enum"], reflect.Float64)
+	assertEnumTypes(t, properties["active"].(map[string]any)["enum"], reflect.Bool)
+	assertEnumTypes(t, properties["role"].(map[string]any)["enum"], reflect.String)
+}
+
+func assertEnumTypes(t *testing.T, enum any, want reflect.Kind) {
+	t.Helper()
+	value := reflect.ValueOf(enum)
+	if value.Kind() != reflect.Slice {
+		t.Fatalf("enum=%#v is not a slice", enum)
+	}
+	if value.Len() == 0 {
+		t.Fatalf("enum=%#v is empty", enum)
+	}
+	for i := 0; i < value.Len(); i++ {
+		if got := reflect.TypeOf(value.Index(i).Interface()).Kind(); got != want {
+			t.Fatalf("enum=%#v item %d kind=%s want=%s", enum, i, got, want)
+		}
+	}
+}

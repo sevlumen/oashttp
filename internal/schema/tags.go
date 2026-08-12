@@ -1,9 +1,12 @@
 package schema
 
 import (
+	"fmt"
 	"reflect"
 	"strconv"
 	"strings"
+
+	"github.com/sevlumen/oashttp/v2/internal/validationrule"
 )
 
 func parseJSONTag(field reflect.StructField) (string, bool, bool) {
@@ -24,15 +27,8 @@ func parseJSONTag(field reflect.StructField) (string, bool, bool) {
 	}
 	return name, omit, false
 }
-func hasRule(tag, name string) bool {
-	for _, part := range strings.Split(tag, ",") {
-		if part == name || strings.HasPrefix(part, name+"=") {
-			return true
-		}
-	}
-	return false
-}
-func applyFieldTags(schema map[string]any, field reflect.StructField) {
+
+func applyFieldTags(schema map[string]any, field reflect.StructField, rules []validationrule.Rule) error {
 	if v := field.Tag.Get("description"); v != "" {
 		schema["description"] = v
 	}
@@ -42,81 +38,99 @@ func applyFieldTags(schema map[string]any, field reflect.StructField) {
 	if v := field.Tag.Get("example"); v != "" {
 		schema["example"] = parseExample(v, field.Type)
 	}
-	for _, rule := range strings.Split(field.Tag.Get("validate"), ",") {
-		if rule == "" || rule == "required" {
+
+	for _, rule := range rules {
+		switch rule.Kind {
+		case validationrule.Required:
 			continue
-		}
-		parts := strings.SplitN(rule, "=", 2)
-		name := parts[0]
-		arg := ""
-		if len(parts) == 2 {
-			arg = parts[1]
-		}
-		switch name {
-		case "email":
+		case validationrule.Email:
 			schema["format"] = "email"
-		case "uuid":
+		case validationrule.UUID:
 			schema["format"] = "uuid"
-		case "oneof":
-			schema["enum"] = strings.Fields(arg)
-		case "min":
-			applyBound(schema, field.Type, arg, true)
-		case "max":
-			applyBound(schema, field.Type, arg, false)
-		case "len":
-			if n, err := strconv.Atoi(arg); err == nil {
-				if baseKind(field.Type) == reflect.String {
-					schema["minLength"] = n
-					schema["maxLength"] = n
-				} else {
-					schema["minItems"] = n
-					schema["maxItems"] = n
+		case validationrule.E164:
+			continue
+		case validationrule.OneOf:
+			values := make([]any, 0, len(rule.Choices))
+			for _, choice := range rule.Choices {
+				value, err := validationrule.ScalarValue(field.Type, choice)
+				if err != nil {
+					return fmt.Errorf("oneof value %q: %w", choice, err)
 				}
+				values = append(values, value)
 			}
-		case "gte":
-			if n, err := strconv.ParseFloat(arg, 64); err == nil {
-				schema["minimum"] = n
-			}
-		case "lte":
-			if n, err := strconv.ParseFloat(arg, 64); err == nil {
-				schema["maximum"] = n
-			}
+			schema["enum"] = values
+		case validationrule.Min:
+			applyLengthOrNumberBound(schema, field.Type, rule.Integer, true)
+		case validationrule.Max:
+			applyLengthOrNumberBound(schema, field.Type, rule.Integer, false)
+		case validationrule.Len:
+			applyExactLengthOrNumber(schema, field.Type, rule.Integer)
+		case validationrule.GTE:
+			schema["minimum"] = rule.Number
+		case validationrule.LTE:
+			schema["maximum"] = rule.Number
 		}
 	}
+	return nil
 }
-func applyBound(schema map[string]any, t reflect.Type, arg string, min bool) {
-	n, err := strconv.ParseFloat(arg, 64)
-	if err != nil {
-		return
-	}
-	kind := baseKind(t)
+
+func applyLengthOrNumberBound(schema map[string]any, t reflect.Type, n int, min bool) {
+	kind := validationrule.BaseKind(t)
 	switch kind {
 	case reflect.String:
 		if min {
-			schema["minLength"] = int(n)
+			schema["minLength"] = n
 		} else {
-			schema["maxLength"] = int(n)
+			schema["maxLength"] = n
 		}
-	case reflect.Slice, reflect.Array, reflect.Map:
+	case reflect.Slice, reflect.Array:
 		if min {
-			schema["minItems"] = int(n)
+			schema["minItems"] = n
 		} else {
-			schema["maxItems"] = int(n)
+			schema["maxItems"] = n
+		}
+	case reflect.Map:
+		if min {
+			schema["minProperties"] = n
+		} else {
+			schema["maxProperties"] = n
 		}
 	default:
 		if min {
-			schema["minimum"] = n
+			schema["minimum"] = float64(n)
 		} else {
-			schema["maximum"] = n
+			schema["maximum"] = float64(n)
 		}
 	}
 }
-func baseKind(t reflect.Type) reflect.Kind {
-	for t.Kind() == reflect.Pointer {
-		t = t.Elem()
+
+func applyExactLengthOrNumber(schema map[string]any, t reflect.Type, n int) {
+	kind := validationrule.BaseKind(t)
+	switch kind {
+	case reflect.String:
+		schema["minLength"] = n
+		schema["maxLength"] = n
+	case reflect.Slice, reflect.Array:
+		schema["minItems"] = n
+		schema["maxItems"] = n
+	case reflect.Map:
+		schema["minProperties"] = n
+		schema["maxProperties"] = n
+	default:
+		schema["minimum"] = float64(n)
+		schema["maximum"] = float64(n)
 	}
-	return t.Kind()
 }
+
+func hasRuleKind(rules []validationrule.Rule, kind validationrule.Kind) bool {
+	for _, rule := range rules {
+		if rule.Kind == kind {
+			return true
+		}
+	}
+	return false
+}
+
 func parseExample(v string, t reflect.Type) any {
 	for t.Kind() == reflect.Pointer {
 		t = t.Elem()

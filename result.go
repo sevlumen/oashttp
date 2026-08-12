@@ -8,6 +8,7 @@ import (
 
 	"github.com/sevlumen/oashttp/v2/internal/core"
 	internalfailure "github.com/sevlumen/oashttp/v2/internal/failure"
+	"github.com/sevlumen/oashttp/v2/internal/httpsem"
 )
 
 type Result[T any] struct {
@@ -82,7 +83,7 @@ func (r Result[T]) WriteHTTPWithFailureFormatter(w http.ResponseWriter, onError 
 	}
 
 	var payload []byte
-	if statusAllowsBody(status) && r.body != nil {
+	if httpsem.StatusAllowsBody(status) && r.body != nil {
 		var err error
 		payload, err = json.Marshal(r.body)
 		if err != nil {
@@ -96,7 +97,7 @@ func (r Result[T]) WriteHTTPWithFailureFormatter(w http.ResponseWriter, onError 
 		}
 	}
 
-	if r.contentType != "" && statusAllowsBody(status) {
+	if r.contentType != "" && httpsem.StatusAllowsBody(status) {
 		w.Header().Set("Content-Type", r.contentType)
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 	}
@@ -109,10 +110,6 @@ func (r Result[T]) WriteHTTPWithFailureFormatter(w http.ResponseWriter, onError 
 			reportWriteError(onError, fmt.Errorf("oashttp: write response: %w", err))
 		}
 	}
-}
-
-func statusAllowsBody(status int) bool {
-	return status >= 200 && status != http.StatusNoContent && status != http.StatusNotModified
 }
 
 func (r Result[T]) write(w http.ResponseWriter) { r.WriteHTTP(w, nil) }
