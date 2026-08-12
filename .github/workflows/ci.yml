@@ -79,11 +79,6 @@ jobs:
         with:
           go-version: "1.26.x"
           cache: false
-      - name: Characterize incompatible release compatibility
+      - name: Check public API compatibility
         shell: bash
-        run: |
-          set -euo pipefail
-          if bash scripts/check-public-api.sh v2.1.0; then
-            echo "minor release unexpectedly accepted incompatible API" >&2
-            exit 1
-          fi
+        run: bash scripts/check-public-api.sh
