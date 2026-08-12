@@ -2,13 +2,13 @@
 
 ## Status
 
-Approved design direction; implementation not started.
+Implemented on `refactor/config-snapshot` and verified by GitHub Actions CI #175 on head `d7eb74964178b51029216e92578e254979e24114`.
 
 ## Problem
 
-`New(config Config)` currently stores `normalizeConfig(config)` in `App`. Because `Config.Servers` is a slice and `Config.SecurityProviders` is a map, copying the `Config` value does not detach their backing storage from the caller.
+`New(config Config)` previously stored `normalizeConfig(config)` in `App`. Because `Config.Servers` is a slice and `Config.SecurityProviders` is a map, copying the `Config` value did not detach their backing storage from the caller.
 
-A caller can therefore mutate those containers after `New()` and unintentionally alter the application's configuration before or while `Build()` reads it. This weakens the intended configuration ownership and freeze boundary and can create data races when caller-owned mutation overlaps application build or request setup.
+A caller could therefore mutate those containers after `New()` and unintentionally alter the application's configuration before or while `Build()` read it. This weakened the intended configuration ownership and freeze boundary and could create data races when caller-owned mutation overlapped application build or request setup.
 
 ## Goal
 
@@ -69,7 +69,7 @@ App-owned runtimeConfig
   Build()
 ```
 
-`Build()` continues to snapshot application registration state under `App.mu`; it should not need to compensate for caller-owned config aliases.
+`Build()` continues to snapshot application registration state under `App.mu`; it does not compensate for caller-owned config aliases.
 
 ## Behavioral contract
 
@@ -97,31 +97,29 @@ delete(cfg.SecurityProviders, "apiKey")
 
 must not change the configuration observed by `app`.
 
-The app must continue to observe the server value and provider mapping captured when `New()` was called.
+The app continues to observe the server value and provider mapping captured when `New()` was called.
 
 ## Concurrency contract
 
-After `New()` returns, concurrent mutation of the caller's original `Servers` slice elements or `SecurityProviders` map must not race with `App.Build()` through shared container storage.
+After `New()` returns, concurrent mutation of the caller's original `Servers` slice elements or `SecurityProviders` map does not race with `App.Build()` through shared container storage.
 
 This contract does not cover mutation of concrete objects stored behind interface values. For example, if `providerA` contains mutable fields and the caller changes them concurrently with authentication, the provider implementation must provide its own synchronization.
 
 ## Testing
 
-Add focused regression tests around construction and build behavior.
+Focused regression coverage was added around construction and build behavior.
 
 ### Server snapshot
 
-Create a config with one server, call `New()`, mutate the caller's original slice element, build the app, and assert the generated OpenAPI document still contains the original server value.
+A config with one server is passed to `New()`, the caller's original slice element is mutated, and the app retains the original server value.
 
 ### Security provider snapshot
 
-Create a config with a named security provider, call `New()`, then replace/delete entries in the caller's original map. Register an operation requiring the original provider and assert `Build()` still succeeds and emits the original security scheme.
-
-A complementary case should prove that adding a provider to the caller's map after `New()` does not make that provider available to the app.
+A config with a named security provider is passed to `New()`, then the caller replaces, adds, and deletes entries in the original map. The app retains the original provider mapping and does not observe providers added after construction.
 
 ### Race regression
 
-Add a test suitable for `go test -race` that calls `New()` first, then mutates the caller's original containers concurrently with `Build()`. The test must avoid mutating shared provider internals; it is specifically intended to detect container aliasing.
+A race-focused test mutates the caller's original `Servers` slice and `SecurityProviders` map concurrently with `Build()`. The operation requires the named provider so build-time code consumes both app-owned snapshots. `go test -race ./...` passes.
 
 ## Compatibility
 
@@ -131,20 +129,21 @@ That aliasing is not part of the documented configuration API and conflicts with
 
 ## Verification
 
-The implementation must pass the existing repository quality gates unchanged:
+GitHub Actions CI #175 passed on implementation head `d7eb74964178b51029216e92578e254979e24114`:
 
-- Go 1.22 through Go 1.26 matrix
-- formatting
-- zero runtime dependency check
-- module consistency
-- `go vet ./...`
-- repeated shuffled tests
-- race detector
-- coverage floor >= 70%
-- OpenAPI golden verification
-- route and binding fuzz targets
-- benchmarks
-- `govulncheck ./...`
+- Go 1.22 through Go 1.26 matrix: pass
+- formatting: pass
+- zero runtime dependency check: pass
+- module consistency: pass
+- `go vet ./...`: pass
+- repeated shuffled tests: pass
+- race detector: pass
+- total statement coverage: 71.6% against the 70% floor
+- OpenAPI golden verification: pass with no diff
+- route fuzz target: pass
+- binding fuzz target: pass
+- benchmarks: pass
+- `govulncheck ./...`: no known vulnerabilities
 
 ## Follow-up
 
