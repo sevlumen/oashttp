@@ -188,7 +188,7 @@ func parseExample(v string, t reflect.Type) any {
 		if x, e := strconv.ParseInt(v, 10, 64); e == nil {
 			return x
 		}
-	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
 		if x, e := strconv.ParseUint(v, 10, 64); e == nil {
 			return x
 		}
