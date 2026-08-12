@@ -31,10 +31,7 @@ func MapHandler(group *Group, method, path string, handler http.Handler) *RawOpe
 		RawHandler: handler,
 		Responses:  map[int]internaloperation.ResponseSpec{},
 	}
-	for _, middleware := range group.middlewares {
-		def.Middlewares = append(def.Middlewares, middleware)
-	}
-	group.app.registerOperation(def)
+	group.app.registerOperation(group, def)
 	return &RawOperationBuilder{app: group.app, definition: def}
 }
 
