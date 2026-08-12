@@ -4,29 +4,9 @@ import (
 	"fmt"
 	"reflect"
 	"strconv"
-	"strings"
 
 	"github.com/sevlumen/oashttp/v2/internal/validationrule"
 )
-
-func parseJSONTag(field reflect.StructField) (string, bool, bool) {
-	tag := field.Tag.Get("json")
-	if tag == "-" {
-		return "", false, true
-	}
-	parts := strings.Split(tag, ",")
-	name := field.Name
-	if len(parts) > 0 && parts[0] != "" {
-		name = parts[0]
-	}
-	omit := false
-	for _, p := range parts[1:] {
-		if p == "omitempty" {
-			omit = true
-		}
-	}
-	return name, omit, false
-}
 
 func applyFieldTags(schema map[string]any, field reflect.StructField, rules []validationrule.Rule) error {
 	if v := field.Tag.Get("description"); v != "" {
