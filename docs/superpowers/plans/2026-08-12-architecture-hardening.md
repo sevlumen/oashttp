@@ -37,7 +37,7 @@
 - [x] Snapshot child-group middleware under `App.mu`.
 - [x] Snapshot operation middleware and append the operation under the same `App.mu` critical section.
 - [x] Route typed and raw registration through the synchronized helper.
-- [ ] Verify with `go test -race ./...`.
+- [x] Verify with `go test -race ./...`.
 
 ### Task 2: Split operation compiler responsibilities
 
@@ -55,8 +55,8 @@
 - [x] Move definition validation and request-plan compilation to `validate.go`.
 - [x] Move runtime HTTP/security/middleware execution to `runtime.go`.
 - [x] Move OpenAPI operation generation to `openapi.go`.
-- [ ] Verify `go test ./internal/operation -count=3`.
-- [ ] Verify full repeated and race suites.
+- [x] Verify `go test ./internal/operation -count=3` through the repeated CI suite.
+- [x] Verify full repeated and race suites.
 
 ### Task 3: Keep App.Build focused on composition
 
@@ -73,7 +73,7 @@
 - [x] Move compiled-operation application into `applyCompiledOperation`.
 - [x] Move security-scheme and Path Item helpers out of `app.go`.
 - [x] Add direct helper tests for HTTP methods and security-scheme field validation.
-- [ ] Verify OpenAPI golden output is unchanged.
+- [x] Verify OpenAPI golden output is unchanged.
 
 ### Task 4: Document architecture boundaries
 
@@ -89,19 +89,19 @@
 
 ### Task 5: Final architecture regression gate
 
-- [ ] `test -z "$(gofmt -l .)"`
-- [ ] zero runtime dependency check
-- [ ] `go mod tidy` with no module diff
-- [ ] `go vet ./...`
-- [ ] `go test ./... -shuffle=on -count=3`
-- [ ] `go test -race ./...`
-- [ ] total statement coverage >= 70%
-- [ ] OpenAPI golden verification with no diff
-- [ ] route fuzz target for 15 seconds
-- [ ] binding fuzz target for 15 seconds
-- [ ] benchmarks
-- [ ] `govulncheck ./...`
-- [ ] review final diff against `main` for accidental public API or scope changes
+- [x] `test -z "$(gofmt -l .)"`
+- [x] zero runtime dependency check
+- [x] `go mod tidy` with no module diff
+- [x] `go vet ./...`
+- [x] `go test ./... -shuffle=on -count=3`
+- [x] `go test -race ./...`
+- [x] total statement coverage >= 70% (71.4% in CI run #161)
+- [x] OpenAPI golden verification with no diff
+- [x] route fuzz target for 15 seconds
+- [x] binding fuzz target for 15 seconds
+- [x] benchmarks
+- [x] `govulncheck ./...` (no known vulnerabilities in CI run #161)
+- [x] review final diff against `main` for accidental public API or scope changes
 
 ## Publication Boundary
 
