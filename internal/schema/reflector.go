@@ -137,32 +137,11 @@ func (r *Registry) structSchema(t reflect.Type, stack map[reflect.Type]bool) (*o
 		next[k] = v
 	}
 	next[t] = true
+
 	properties := map[string]any{}
 	required := []string{}
-	for i := 0; i < t.NumField(); i++ {
-		field := t.Field(i)
-		if field.PkgPath != "" {
-			continue
-		}
-		jsonName, _, skip := parseJSONTag(field)
-		if skip {
-			continue
-		}
-		if field.Anonymous && field.Tag.Get("json") == "" && field.Type.Kind() == reflect.Struct {
-			embedded, err := r.structSchema(field.Type, next)
-			if err != nil {
-				return nil, err
-			}
-			if p, ok := (*embedded)["properties"].(map[string]any); ok {
-				for k, v := range p {
-					properties[k] = v
-				}
-			}
-			if req, ok := (*embedded)["required"].([]string); ok {
-				required = append(required, req...)
-			}
-			continue
-		}
+	for _, selected := range resolveJSONFields(t) {
+		field := selected.Field
 		rules, err := validationrule.Parse(field.Type, field.Tag.Get("validate"))
 		if err != nil {
 			return nil, fmt.Errorf("field %s.%s: %w", t, field.Name, err)
@@ -175,11 +154,12 @@ func (r *Registry) structSchema(t reflect.Type, stack map[reflect.Type]bool) (*o
 		if err := applyFieldTags(schemaMap, field, rules); err != nil {
 			return nil, fmt.Errorf("field %s.%s: %w", t, field.Name, err)
 		}
-		properties[jsonName] = schemaMap
+		properties[selected.Name] = schemaMap
 		if hasRuleKind(rules, validationrule.Required) {
-			required = append(required, jsonName)
+			required = append(required, selected.Name)
 		}
 	}
+
 	out := oas31.Schema{"type": "object", "properties": properties}
 	if len(required) > 0 {
 		out["required"] = required
