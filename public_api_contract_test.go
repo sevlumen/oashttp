@@ -34,8 +34,8 @@ func TestPublicFacadeConsumerContract(t *testing.T) {
 	}
 
 	app := oashttp.New(oashttp.Config{
-		Info:      oashttp.Info{Title: "Contract API", Version: "1.0.0"},
-		Servers:   []oashttp.Server{{URL: "https://api.example.test"}},
+		Info:    oashttp.Info{Title: "Contract API", Version: "1.0.0"},
+		Servers: []oashttp.Server{{URL: "https://api.example.test"}},
 		SecurityProviders: map[string]oashttp.SecurityProvider{
 			"apiKey": apiKeyProvider{},
 		},
