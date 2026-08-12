@@ -13,10 +13,10 @@ func OperationFromContext(ctx context.Context) (OperationInfo, bool) {
 	return core.OperationFromContext(ctx)
 }
 
-// OperationID returns the selected OpenAPI operation ID and whether metadata exists.
-func OperationID(ctx context.Context) (string, bool) {
-	info, ok := OperationFromContext(ctx)
-	return info.ID, ok
+// OperationID returns the selected OpenAPI operation ID, or an empty string.
+func OperationID(ctx context.Context) string {
+	info, _ := OperationFromContext(ctx)
+	return info.ID
 }
 
 // RoutePattern returns the normalized route pattern, or an empty string.
