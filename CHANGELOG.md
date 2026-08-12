@@ -4,6 +4,22 @@ All notable changes to this project are documented here. The project follows Sem
 
 ## [Unreleased]
 
+## [2.0.3] - 2026-08-12
+
+### Fixed
+
+- OpenAPI schema field selection now follows default `encoding/json` v1 embedding and dominance behavior for anonymous structs, anonymous struct pointers, unexported anonymous structs, explicit JSON names, invalid JSON names, shadowing, and ambiguous fields.
+- `json:",string"` on supported primitive fields now generates the JSON wire shape as a string, preserves pointer nullability, removes incompatible numeric/boolean schema keywords, keeps explicit string formats, and emits enum/example values using the same JSON lexical representation as `encoding/json`.
+- Schema generation now accepts JSON-object-compatible map keys using strings, signed/unsigned integers including `uintptr`, and key types that implement `encoding.TextMarshaler`, while continuing to reject unsupported key types.
+- Hidden or ambiguous JSON fields are eliminated before schema/validation annotation processing, so fields that `encoding/json` does not expose cannot leak into `properties` / `required` or fail schema compilation.
+
+### Compatibility
+
+- No exported public API identifiers or signatures changed.
+- Runtime binding and validation behavior are unchanged; this patch corrects generated schema/documentation behavior.
+- Go 1.22 remains the minimum supported version.
+- No third-party runtime dependencies were added.
+
 ## [2.0.2] - 2026-08-12
 
 ### Changed
@@ -34,7 +50,7 @@ All notable changes to this project are documented here. The project follows Sem
 - OpenAPI registration for raw `HEAD`, `OPTIONS`, and `TRACE` operations in addition to the existing typed-operation methods.
 - Runtime route-constraint validation for raw handlers, including `uuid`, integer, boolean, date, and datetime constraints.
 - `Group.Use(...)` and operation-level `.Use(...)` middleware with deterministic parent-group, child-group, and operation ordering.
-- `Config.SecurityProviders`, `SecurityProvider`, and `SecurityScheme` for named request-aware authentication and configurable OpenAPI `http` / `apiKey` schemes.
+- `Config.SecurityProviders`, `SecurityProvider`, and `SecurityScheme` for named request-aware authentication and configurable OpenAPI `http` / `apiKey` security schemes.
 - `OperationInfo`, `OperationFromContext`, `OperationID`, and `RoutePattern` for low-cardinality metrics, traces, audit logging, and panic reporting.
 
 ### Changed

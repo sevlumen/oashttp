@@ -4,7 +4,7 @@
 
 `oashttp` is a zero-third-party-runtime-dependency Go library for typed `net/http` JSON endpoints, compiled request binding and validation, RFC 9457-style Problem Details, security integration, panic recovery, scoped middleware, raw-handler escape hatches, and OpenAPI 3.1 generation.
 
-**Stable release:** `v2.0.2`
+**Stable release:** `v2.0.3`
 
 **Module:** `github.com/sevlumen/oashttp/v2`
 
@@ -13,8 +13,19 @@
 ## Install
 
 ```bash
-go get github.com/sevlumen/oashttp/v2@v2.0.2
+go get github.com/sevlumen/oashttp/v2@v2.0.3
 ```
+
+## What's new in v2.0.3
+
+Version 2.0.3 aligns generated schemas more closely with default `encoding/json` v1 behavior without changing the public API or runtime binding behavior:
+
+- embedded struct and embedded pointer field selection now follows JSON name dominance, shadowing, and ambiguity rules;
+- `json:",string"` primitive fields are documented using their actual string wire representation, including nullable pointers and lexical enum/example values;
+- JSON-object-compatible integer and `encoding.TextMarshaler` map keys are accepted by schema generation;
+- hidden or ambiguous fields are removed before schema annotations are compiled, so they cannot leak into generated properties or cause spurious schema failures.
+
+No third-party runtime dependency or exported API is introduced by this patch.
 
 ## What's new in v2.0.2
 
@@ -45,7 +56,7 @@ OAuth2 flows and first-class scope requirements are not part of this patch; the 
 Version 2 uses the canonical module path `github.com/sevlumen/oashttp/v2`. Replace imports from `github.com/quang020102/go-osm`, then run:
 
 ```bash
-go get github.com/sevlumen/oashttp/v2@v2.0.2
+go get github.com/sevlumen/oashttp/v2@v2.0.3
 go mod tidy
 ```
 

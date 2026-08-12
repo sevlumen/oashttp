@@ -118,7 +118,6 @@ func TestRegistryCoversProductionSchemaKinds(t *testing.T) {
 func TestRegistryRejectsUnsupportedTypesAndProviders(t *testing.T) {
 	registry := NewRegistry()
 	for _, typ := range []reflect.Type{
-		reflect.TypeOf(map[int]string{}),
 		reflect.TypeOf(make(chan int)),
 		reflect.TypeOf(nilSchema("")),
 	} {

@@ -1,32 +1,13 @@
 package schema
 
 import (
+	"encoding/json"
 	"fmt"
 	"reflect"
 	"strconv"
-	"strings"
 
 	"github.com/sevlumen/oashttp/v2/internal/validationrule"
 )
-
-func parseJSONTag(field reflect.StructField) (string, bool, bool) {
-	tag := field.Tag.Get("json")
-	if tag == "-" {
-		return "", false, true
-	}
-	parts := strings.Split(tag, ",")
-	name := field.Name
-	if len(parts) > 0 && parts[0] != "" {
-		name = parts[0]
-	}
-	omit := false
-	for _, p := range parts[1:] {
-		if p == "omitempty" {
-			omit = true
-		}
-	}
-	return name, omit, false
-}
 
 func applyFieldTags(schema map[string]any, field reflect.StructField, rules []validationrule.Rule) error {
 	if v := field.Tag.Get("description"); v != "" {
@@ -72,6 +53,69 @@ func applyFieldTags(schema map[string]any, field reflect.StructField, rules []va
 		}
 	}
 	return nil
+}
+
+func applyQuotedJSONSchema(schema map[string]any, field reflect.StructField) error {
+	var description any
+	if value, ok := schema["description"]; ok {
+		description = value
+	}
+
+	var example any
+	if value, ok := schema["example"]; ok {
+		lexical, err := quotedJSONLexical(value)
+		if err != nil {
+			return fmt.Errorf("quoted example: %w", err)
+		}
+		example = lexical
+	}
+
+	var enum []any
+	if values, ok := schema["enum"].([]any); ok {
+		enum = make([]any, 0, len(values))
+		for _, value := range values {
+			lexical, err := quotedJSONLexical(value)
+			if err != nil {
+				return fmt.Errorf("quoted enum: %w", err)
+			}
+			enum = append(enum, lexical)
+		}
+	}
+
+	for key := range schema {
+		delete(schema, key)
+	}
+
+	stringSchema := map[string]any{"type": "string"}
+	if format := field.Tag.Get("format"); format != "" {
+		stringSchema["format"] = format
+	}
+	if enum != nil {
+		stringSchema["enum"] = enum
+	}
+
+	if field.Type.Kind() == reflect.Pointer {
+		schema["oneOf"] = []any{stringSchema, map[string]any{"type": "null"}}
+	} else {
+		for key, value := range stringSchema {
+			schema[key] = value
+		}
+	}
+	if description != nil {
+		schema["description"] = description
+	}
+	if example != nil {
+		schema["example"] = example
+	}
+	return nil
+}
+
+func quotedJSONLexical(value any) (string, error) {
+	data, err := json.Marshal(value)
+	if err != nil {
+		return "", err
+	}
+	return string(data), nil
 }
 
 func applyLengthOrNumberBound(schema map[string]any, t reflect.Type, n int, min bool) {
@@ -144,7 +188,7 @@ func parseExample(v string, t reflect.Type) any {
 		if x, e := strconv.ParseInt(v, 10, 64); e == nil {
 			return x
 		}
-	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
 		if x, e := strconv.ParseUint(v, 10, 64); e == nil {
 			return x
 		}
