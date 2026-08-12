@@ -9,13 +9,14 @@ import (
 	"unicode/utf8"
 
 	"github.com/sevlumen/oashttp/v2/internal/core"
+	"github.com/sevlumen/oashttp/v2/internal/validationrule"
 )
 
 var e164Pattern = regexp.MustCompile(`^\+[1-9][0-9]{7,14}$`)
 
-func validateRule(v reflect.Value, r compiledRule) string {
-	switch r.kind {
-	case ruleRequired:
+func validateRule(v reflect.Value, r validationrule.Rule) string {
+	switch r.Kind {
+	case validationrule.Required:
 		if isZero(v) {
 			return "is required"
 		}
@@ -26,52 +27,53 @@ func validateRule(v reflect.Value, r compiledRule) string {
 	for v.Kind() == reflect.Pointer || v.Kind() == reflect.Interface {
 		v = v.Elem()
 	}
-	switch r.kind {
-	case ruleMin:
-		if measure(v) < float64(r.integer) {
-			return fmt.Sprintf("must be at least %d", r.integer)
+	switch r.Kind {
+	case validationrule.Min:
+		if measure(v) < float64(r.Integer) {
+			return fmt.Sprintf("must be at least %d", r.Integer)
 		}
-	case ruleMax:
-		if measure(v) > float64(r.integer) {
-			return fmt.Sprintf("must be at most %d", r.integer)
+	case validationrule.Max:
+		if measure(v) > float64(r.Integer) {
+			return fmt.Sprintf("must be at most %d", r.Integer)
 		}
-	case ruleLen:
-		if measure(v) != float64(r.integer) {
-			return fmt.Sprintf("must have length %d", r.integer)
+	case validationrule.Len:
+		if measure(v) != float64(r.Integer) {
+			return fmt.Sprintf("must have length %d", r.Integer)
 		}
-	case ruleEmail:
+	case validationrule.Email:
 		s := strings.TrimSpace(v.String())
 		a, err := mail.ParseAddress(s)
 		if err != nil || a.Address != s {
 			return "must be a valid email address"
 		}
-	case ruleUUID:
+	case validationrule.UUID:
 		if _, err := core.NormalizeUUID(v.String()); err != nil {
 			return "must be a valid UUID"
 		}
-	case ruleE164:
+	case validationrule.E164:
 		if !e164Pattern.MatchString(v.String()) {
 			return "must be a valid E.164 phone number"
 		}
-	case ruleOneOf:
+	case validationrule.OneOf:
 		actual := fmt.Sprint(v.Interface())
-		for _, choice := range r.choices {
+		for _, choice := range r.Choices {
 			if actual == choice {
 				return ""
 			}
 		}
-		return "must be one of " + strings.Join(r.choices, ", ")
-	case ruleGTE:
-		if numeric(v) < r.number {
-			return fmt.Sprintf("must be greater than or equal to %v", r.number)
+		return "must be one of " + strings.Join(r.Choices, ", ")
+	case validationrule.GTE:
+		if numeric(v) < r.Number {
+			return fmt.Sprintf("must be greater than or equal to %v", r.Number)
 		}
-	case ruleLTE:
-		if numeric(v) > r.number {
-			return fmt.Sprintf("must be less than or equal to %v", r.number)
+	case validationrule.LTE:
+		if numeric(v) > r.Number {
+			return fmt.Sprintf("must be less than or equal to %v", r.Number)
 		}
 	}
 	return ""
 }
+
 func isNil(v reflect.Value) bool {
 	if !v.IsValid() {
 		return true
@@ -82,12 +84,14 @@ func isNil(v reflect.Value) bool {
 	}
 	return false
 }
+
 func isZero(v reflect.Value) bool {
 	if !v.IsValid() {
 		return true
 	}
 	return v.IsZero()
 }
+
 func measure(v reflect.Value) float64 {
 	switch v.Kind() {
 	case reflect.String:
@@ -98,6 +102,7 @@ func measure(v reflect.Value) float64 {
 		return numeric(v)
 	}
 }
+
 func numeric(v reflect.Value) float64 {
 	switch v.Kind() {
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
