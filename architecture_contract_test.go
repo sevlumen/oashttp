@@ -45,7 +45,7 @@ func importsInDir(t *testing.T, dir string) []string {
 }
 
 func TestArchitectureContracts(t *testing.T) {
-	for _, dir := range []string{"internal/core", "internal/oas31"} {
+	for _, dir := range []string{"internal/core", "internal/oas31", "internal/httpsem", "internal/validationrule"} {
 		t.Run(strings.TrimPrefix(dir, "internal/")+" remains a dependency leaf", func(t *testing.T) {
 			for _, importPath := range importsInDir(t, dir) {
 				if importPath == architectureModulePath || strings.HasPrefix(importPath, architectureModulePath+"/internal/") {
