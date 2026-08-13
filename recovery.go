@@ -22,9 +22,13 @@ func (w *responseState) WriteHeader(status int) {
 	if w.wroteHeader {
 		return
 	}
+	if status >= 100 && status < 200 && status != http.StatusSwitchingProtocols {
+		w.ResponseWriter.WriteHeader(status)
+		return
+	}
+	w.ResponseWriter.WriteHeader(status)
 	w.wroteHeader = true
 	w.status = status
-	w.ResponseWriter.WriteHeader(status)
 }
 
 func (w *responseState) Write(data []byte) (int, error) {

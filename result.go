@@ -58,7 +58,7 @@ func (r Result[T]) WriteHTTPWithFailureFormatter(w http.ResponseWriter, onError 
 	if status == 0 {
 		status = http.StatusOK
 	}
-	if status < 100 || status > 599 {
+	if status < 200 || status > 599 {
 		reportWriteError(onError, fmt.Errorf("oashttp: invalid result status %d", status))
 		internalfailure.WriteResolved(w, formatter, failureContentType, core.Failure{
 			Status: http.StatusInternalServerError,
