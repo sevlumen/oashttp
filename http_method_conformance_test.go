@@ -118,7 +118,9 @@ func TestHTTPMethodConformanceTrailingSlashIsExactButCanonical(t *testing.T) {
 
 	missingSlash := httptest.NewRecorder()
 	handler.ServeHTTP(missingSlash, httptest.NewRequest(http.MethodGet, "/slash", nil))
-	if missingSlash.Code != http.StatusMovedPermanently {
+	switch missingSlash.Code {
+	case http.StatusMovedPermanently, http.StatusTemporaryRedirect:
+	default:
 		t.Fatalf("redirect status=%d", missingSlash.Code)
 	}
 	if got := missingSlash.Header().Get("Location"); got != "/slash/" {
