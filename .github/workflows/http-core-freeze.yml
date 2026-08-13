@@ -1,0 +1,66 @@
+name: HTTP Core Freeze
+
+on:
+  pull_request:
+    paths:
+      - "http_*_conformance_test.go"
+      - "app.go"
+      - "map.go"
+      - "raw.go"
+      - "operation_carrier.go"
+      - "recovery.go"
+      - "result.go"
+      - "internal/route/**"
+      - "internal/operation/**"
+      - "internal/httpsem/**"
+      - "internal/failure/**"
+      - ".github/workflows/http-core-freeze.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "http_*_conformance_test.go"
+      - "app.go"
+      - "map.go"
+      - "raw.go"
+      - "operation_carrier.go"
+      - "recovery.go"
+      - "result.go"
+      - "internal/route/**"
+      - "internal/operation/**"
+      - "internal/httpsem/**"
+      - "internal/failure/**"
+      - ".github/workflows/http-core-freeze.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  freeze:
+    name: Stress, race, fuzz, benchmark
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v7
+        with:
+          go-version: "1.26.x"
+          cache: false
+      - name: Stress HTTP core characterization
+        shell: bash
+        run: >-
+          go test .
+          -run='^(TestHTTPMethodConformance|TestHTTPContextConformance|TestHTTPWriterConformance|TestHTTPBodyConformance)'
+          -shuffle=on -count=100
+      - name: Race HTTP core characterization
+        shell: bash
+        run: >-
+          go test -race .
+          -run='^(TestHTTPMethodConformance|TestHTTPContextConformance|TestHTTPWriterConformance|TestHTTPBodyConformance|TestRecovery)'
+          -shuffle=on -count=20
+      - name: Fuzz route parser for freeze gate
+        run: go test ./internal/route -run=^$ -fuzz=FuzzRouteParserNeverPanics -fuzztime=60s
+      - name: Fuzz compiled binder for freeze gate
+        run: go test ./internal/binding -run=^$ -fuzz=FuzzCompiledBinderNeverPanics -fuzztime=60s
+      - name: Record HTTP core benchmark baseline
+        run: go test ./benchmarks -bench='^BenchmarkHTTPCore' -run=^$ -benchtime=500ms

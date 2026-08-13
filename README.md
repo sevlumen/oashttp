@@ -4,17 +4,32 @@
 
 `oashttp` is a zero-third-party-runtime-dependency Go library for typed `net/http` JSON endpoints, compiled request binding and validation, RFC 9457-style Problem Details, security integration, panic recovery, scoped middleware, raw-handler escape hatches, and OpenAPI 3.1 generation.
 
-**Stable release:** `v2.0.3`
+**Stable release:** `v2.0.4`
 
 **Module:** `github.com/sevlumen/oashttp/v2`
 
 **Minimum Go version:** Go 1.22
 
+`oashttp` v2 relies on the method-aware routing semantics introduced by the default Go 1.22+ `http.ServeMux`. The legacy `GODEBUG=httpmuxgo121=1` compatibility mode is outside the supported runtime matrix. Canonical slash redirects remain owned by the active supported Go toolchain, including the exact redirect status it selects.
+
 ## Install
 
 ```bash
-go get github.com/sevlumen/oashttp/v2@v2.0.3
+go get github.com/sevlumen/oashttp/v2@v2.0.4
 ```
+
+## What's new in v2.0.4
+
+Version 2.0.4 hardens and freezes the v2 HTTP execution boundary without changing the exported API:
+
+- `/` and routes ending in `/` compile to exact Go 1.22+ `ServeMux` end-of-path patterns instead of unintentionally matching descendant paths;
+- panic recovery preserves interim `1xx` responses while still allowing the handler or recovery layer to send the terminal response; `101 Switching Protocols` remains terminal;
+- typed `Result` values and typed operation contracts reject informational statuses as standalone final responses, while `MapHandler` retains direct informational-response and upgrade control;
+- HTTP-core conformance coverage locks `GET`/`HEAD`, `405`/`Allow`, explicit `OPTIONS`, client cancellation, `ResponseWriter` capabilities, `http.ResponseController` unwrapping, real-server streaming, panic-after-commit behavior, and bodyless statuses;
+- dedicated HTTP-core stress, race, 60-second fuzz, and benchmark gates protect the frozen boundary when relevant code changes;
+- benchmark baselines cover typed no-body, raw no-body, and typed JSON request paths.
+
+No third-party runtime dependency or exported API is introduced by this patch.
 
 ## What's new in v2.0.3
 
@@ -56,7 +71,7 @@ OAuth2 flows and first-class scope requirements are not part of this patch; the 
 Version 2 uses the canonical module path `github.com/sevlumen/oashttp/v2`. Replace imports from `github.com/quang020102/go-osm`, then run:
 
 ```bash
-go get github.com/sevlumen/oashttp/v2@v2.0.3
+go get github.com/sevlumen/oashttp/v2@v2.0.4
 go mod tidy
 ```
 
@@ -189,7 +204,7 @@ Raw handlers:
 - use `.Consumes(...)` only to document request media types in OpenAPI; the raw handler remains responsible for `Content-Type`, body-size, multipart, and streaming policy;
 - can use `.ProducesResponse(...)` when a response has a schema that should appear in OpenAPI.
 
-`MapHandler` is an escape hatch, not a multipart or storage framework.
+`MapHandler` is an escape hatch, not a multipart or storage framework. The default recovery layer preserves `http.Flusher` and `http.Hijacker` when the underlying server exposes them and provides `Unwrap` for `http.ResponseController`. Direct `http.Pusher` type assertions are not part of the v2 compatibility guarantee; HTTP/2 server push should not be a portability requirement for raw endpoints.
 
 ## Scoped middleware
 
@@ -384,6 +399,6 @@ go test ./internal/binding -run=^$ -fuzz=FuzzCompiledBinderNeverPanics -fuzztime
 go test ./... -bench=. -run=^$ -benchtime=100ms
 ```
 
-CI enforces a total statement coverage floor of 70%, verifies the golden OpenAPI document, runs `govulncheck`, and tests Go 1.22 through Go 1.26.
+CI enforces a total statement coverage floor of 70%, verifies the golden OpenAPI document, runs `govulncheck`, and tests Go 1.22 through Go 1.26. Changes touching the frozen HTTP execution boundary also run the dedicated `HTTP Core Freeze` workflow with repeated characterization tests, race repetitions, 60-second route/binding fuzzing, and HTTP-core benchmark recording.
 
 See `examples/users-api`, `SECURITY.md`, `SUPPORT.md`, `CONTRIBUTING.md`, and `CHANGELOG.md`.
