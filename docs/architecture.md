@@ -118,6 +118,10 @@ Owns HTTP handlers for serving generated OpenAPI documents and Swagger UI.
 10. Runtime dependencies remain standard-library-only unless a future compatibility decision explicitly changes that policy.
 11. No production package may depend on `examples/` or test-only code.
 
+### HTTP core freeze boundary
+
+The v2 HTTP core delegates server ownership, connection lifecycle, method matching, canonical redirects, HEAD suppression, request cancellation, and transport capabilities to Go `net/http`. `oashttp` owns operation compilation, request binding/validation, framework failure serialization, route-constraint validation, recovery, and typed-result serialization. New features must not reimplement standard server behavior unless a documented contract requires an intentional deviation.
+
 ## Change guidance
 
 When adding a feature, place the contract at the narrowest stable boundary and keep execution in the focused subsystem. Prefer extending `Definition` only when both runtime behavior and OpenAPI documentation need the same operation-level fact.

@@ -4,6 +4,10 @@
 
 The current v2 module is continuously tested with Go 1.22 through Go 1.26. The module's minimum language version is declared as Go 1.22.
 
+## HTTP routing runtime
+
+Supported v2 deployments use Go 1.22 or newer with the default Go 1.22+ `http.ServeMux` semantics. The legacy `GODEBUG=httpmuxgo121=1` compatibility mode is outside the supported runtime matrix. `GET` routes follow standard `ServeMux` semantics and therefore also answer `HEAD`; method mismatches and `Allow` headers are produced by `ServeMux` unless an explicit raw handler owns the method.
+
 ## Runtime dependencies
 
 The module has no third-party runtime dependencies. Swagger UI assets are browser-side and may be served from the pinned default CDN or from an application-controlled mirror.
