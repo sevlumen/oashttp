@@ -4,6 +4,30 @@ All notable changes to this project are documented here. The project follows Sem
 
 ## [Unreleased]
 
+## [2.0.4] - 2026-08-13
+
+### Added
+
+- HTTP-core conformance tests now lock `GET`/`HEAD`, `405`/`Allow`, explicit raw `OPTIONS`, typed/raw request cancellation, `http.Flusher` / `http.Hijacker`, `http.ResponseController` unwrapping, real-server streaming, panic-after-commit behavior, and bodyless response statuses.
+- HTTP-core benchmark baselines cover typed no-body, raw no-body, and typed JSON request paths.
+- A path-scoped HTTP Core Freeze workflow runs repeated characterization tests, race repetitions, 60-second route/binder fuzzing, and HTTP-core benchmarks when the frozen boundary changes.
+
+### Fixed
+
+- Root and trailing-slash routes now compile to exact Go 1.22+ `http.ServeMux` end-of-path patterns using `{$}`, preventing `/` and paths such as `/users/` from unintentionally matching descendant paths while preserving the user/OpenAPI route.
+- Panic recovery now distinguishes interim informational responses from a committed terminal response, allowing raw handlers to send `103 Early Hints` before a later final status and allowing recovery to emit `500` after a panic that occurs after an interim `1xx`. `101 Switching Protocols` remains terminal for recovery state.
+- Typed `Result` values now reject `1xx` statuses as standalone final responses, and typed operation declarations reject informational response statuses at build time. Raw handlers retain direct control of informational responses and protocol upgrades.
+
+### Compatibility
+
+- The v2 HTTP execution boundary is frozen as of v2.0.4; changes to routing semantics, request-context propagation, recovery commit rules, typed-response finality, or raw `net/http` capability guarantees require explicit compatibility review and freeze-gate coverage.
+- Default Go 1.22+ `http.ServeMux` semantics are required. `GODEBUG=httpmuxgo121=1` is outside the supported runtime matrix.
+- Canonical slash redirects remain delegated to the supported Go runtime, including the exact redirect status selected by the active Go toolchain.
+- No exported public API identifiers or signatures changed.
+- Applications that previously attempted to use a typed `1xx` result should move that endpoint to `MapHandler`, which owns the underlying `http.ResponseWriter` directly.
+- Go 1.22 remains the minimum supported version.
+- No third-party runtime dependencies were added.
+
 ## [2.0.3] - 2026-08-12
 
 ### Fixed
