@@ -86,7 +86,7 @@ func TestRecoveryWrites500AfterInformationalPanic(t *testing.T) {
 	MapHandler(app.Group(""), http.MethodGet, "/early-panic", http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusEarlyHints)
 		panic("boom")
-	})).WithOperationID("earlyThenPanic").ProducesProblem(http.StatusInternalServerError)
+	})).WithOperationID("earlyThenPanic").ProducesProblem(http.StatusInternalServerError).Produces(http.StatusNoContent)
 
 	resp, informational := requestWith1xxTrace(t, app.MustBuild(), "/early-panic")
 	if len(informational) != 1 || informational[0] != http.StatusEarlyHints {
