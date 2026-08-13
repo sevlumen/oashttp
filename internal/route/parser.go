@@ -72,7 +72,11 @@ func Parse(path string) (Pattern, error) {
 		i = end + 1
 	}
 	normalized := out.String()
-	return Pattern{UserPath: path, ServeMuxPath: normalized, OpenAPIPath: normalized, Parameters: parameters}, nil
+	serveMuxPath := normalized
+	if strings.HasSuffix(serveMuxPath, "/") {
+		serveMuxPath += "{$}"
+	}
+	return Pattern{UserPath: path, ServeMuxPath: serveMuxPath, OpenAPIPath: normalized, Parameters: parameters}, nil
 }
 
 func validParameterName(name string) bool {

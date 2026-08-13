@@ -31,6 +31,9 @@ func validateDefinition(def *Definition, opts Options) error {
 		if status < 100 || status > 599 {
 			return fmt.Errorf("%s %s: invalid response status %d", def.Method, def.UserRoute, status)
 		}
+		if def.RawHandler == nil && status >= 100 && status < 200 {
+			return fmt.Errorf("%s %s: typed operation cannot declare informational response status %d", def.Method, def.UserRoute, status)
+		}
 		if spec.Kind == ResponseCustom && httpsem.StatusAllowsBody(status) {
 			if spec.ModelType == nil {
 				return fmt.Errorf("%s %s: custom response %d requires a non-nil model", def.Method, def.UserRoute, status)
